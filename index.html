@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Highway Boss Run</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero-copy">
+      <p class="eyebrow">Highway Boss Run</p>
+      <h1>Three lanes. Endless pressure. One boss at the end of the road.</h1>
+      <p class="intro">
+        Slide between lanes, dodge the traffic and scrap, then lock onto the boss rig to break its armor.
+        Every visual in this prototype is generated with HTML, CSS, and canvas drawing code.
+      </p>
+    </header>
+
+    <main class="game-layout">
+      <section class="game-panel">
+        <div class="hud">
+          <div class="hud-card">
+            <span class="label">Lives</span>
+            <strong id="livesValue">3</strong>
+          </div>
+          <div class="hud-card">
+            <span class="label">To Boss</span>
+            <strong id="distanceValue">1800 m</strong>
+          </div>
+          <div class="hud-card">
+            <span class="label">Phase</span>
+            <strong id="phaseValue">Standby</strong>
+          </div>
+          <div class="hud-card">
+            <span class="label">Route</span>
+            <strong id="routeValue">Paris, France</strong>
+          </div>
+        </div>
+
+        <div class="boss-panel">
+          <div class="boss-copy">
+            <span class="label">Boss Armor</span>
+            <strong id="bossValue">0%</strong>
+          </div>
+          <div class="boss-meter" aria-hidden="true">
+            <span id="bossMeterFill"></span>
+          </div>
+        </div>
+
+        <div class="garage-strip">
+          <div class="garage-card">
+            <span class="label">Driver</span>
+            <strong id="driverValue">Loading</strong>
+          </div>
+          <div class="garage-card">
+            <span class="label">Paint</span>
+            <strong class="paint-value">
+              <span class="paint-swatch" id="paintSwatch" aria-hidden="true"></span>
+              <span id="paintValue">Loading</span>
+            </strong>
+          </div>
+          <div class="garage-card">
+            <span class="label">Collection</span>
+            <strong id="collectionValue">0 / 40 drivers · 0 / 20 paints</strong>
+          </div>
+          <button id="garageButton" class="garage-button" type="button">Garage</button>
+        </div>
+
+        <div class="stage-frame">
+          <canvas
+            id="gameCanvas"
+            width="480"
+            height="800"
+            aria-label="A three lane highway driving game"
+          ></canvas>
+
+          <div class="overlay" id="overlay">
+            <div class="overlay-card">
+              <p class="overlay-kicker" id="overlayKicker">Start Run</p>
+              <h2 id="overlayTitle">Reach the boss rig.</h2>
+              <p id="overlayMessage">
+                Move with Left and Right, or A and D. Stay in the boss lane during the final phase to
+                chew through its armor, but break off when it fires back.
+              </p>
+              <button id="startButton" type="button">Start Engine</button>
+            </div>
+          </div>
+
+          <div class="touch-controls" aria-label="Touch controls">
+            <button type="button" data-move="-1">Left</button>
+            <button type="button" data-move="1">Right</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="info-panel">
+        <div class="info-card">
+          <h2>How it works</h2>
+          <p>There are only three lanes, so every obstacle pattern leaves one deliberate escape route.</p>
+          <p>Every three boss wins unlock the next place on a 100-stop world tour, and each stop gets harder.</p>
+          <p>Beat a boss to recruit one random animal driver. Rainbow drops during boss fights unlock new paint colors.</p>
+        </div>
+        <div class="info-card">
+          <h2>Controls</h2>
+          <p><span>Keyboard</span> Left / Right or A / D</p>
+          <p><span>Garage</span> G or the Garage button</p>
+          <p><span>Restart</span> Enter, Space, or the overlay button</p>
+          <p><span>Mobile</span> Use the on-screen lane buttons</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div class="garage-modal hidden" id="garageModal" aria-hidden="true">
+    <div class="garage-window" role="dialog" aria-modal="true" aria-labelledby="garageTitle">
+      <div class="garage-header">
+        <div>
+          <p class="eyebrow">Garage</p>
+          <h2 id="garageTitle">Choose your animal driver and paint</h2>
+          <p id="garageSubtitle">Boss wins unlock drivers. Rainbow pickups unlock paints.</p>
+        </div>
+        <button id="garageCloseButton" class="garage-close" type="button" aria-label="Close garage">Close</button>
+      </div>
+
+      <div class="garage-summary">
+        <div class="garage-summary-card">
+          <span class="label">Drivers</span>
+          <strong id="garageDriversCount">1 / 40</strong>
+        </div>
+        <div class="garage-summary-card">
+          <span class="label">Paints</span>
+          <strong id="garageColorsCount">1 / 20</strong>
+        </div>
+        <div class="garage-summary-card">
+          <span class="label">Selected</span>
+          <strong id="garageSelectionValue">Loading</strong>
+        </div>
+      </div>
+
+      <div class="garage-tabs" role="tablist" aria-label="Garage sections">
+        <button type="button" class="garage-tab is-active" data-tab="drivers" role="tab" aria-selected="true">Drivers</button>
+        <button type="button" class="garage-tab" data-tab="colors" role="tab" aria-selected="false">Paint</button>
+      </div>
+
+      <section class="garage-section is-active" data-panel="drivers">
+        <div class="garage-grid driver-grid" id="driverGrid"></div>
+      </section>
+
+      <section class="garage-section" data-panel="colors">
+        <div class="garage-grid color-grid" id="colorGrid"></div>
+      </section>
+    </div>
+  </div>
+
+  <script src="main.js" defer></script>
+</body>
+</html>

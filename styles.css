@@ -1,0 +1,657 @@
+:root {
+  --bg-top: #f9bf58;
+  --bg-bottom: #d64f22;
+  --panel: rgba(29, 28, 25, 0.9);
+  --panel-alt: rgba(56, 43, 28, 0.86);
+  --ink: #f8f1de;
+  --muted: #f2c986;
+  --accent: #17c1b2;
+  --accent-dark: #0b6e67;
+  --danger: #ef4444;
+  --warning: #ffb800;
+  --frame: #24150f;
+  --track-shadow: rgba(6, 4, 2, 0.48);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Trebuchet MS", "Gill Sans", "Avenir Next", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top, rgba(255, 244, 190, 0.24), transparent 34%),
+    linear-gradient(180deg, var(--bg-top), #f09a38 28%, #c45826 63%, #341815 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 38%),
+    repeating-linear-gradient(
+      -32deg,
+      rgba(255, 255, 255, 0.03),
+      rgba(255, 255, 255, 0.03) 12px,
+      transparent 12px,
+      transparent 38px
+    );
+  pointer-events: none;
+}
+
+.page-shell {
+  position: relative;
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 36px;
+}
+
+.hero-copy {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 24px;
+  animation: rise-in 700ms ease-out both;
+}
+
+.eyebrow,
+.overlay-kicker,
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #2f170e;
+  font-weight: 700;
+}
+
+.hero-copy h1 {
+  margin: 0;
+  max-width: 14ch;
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-size: clamp(2.8rem, 7vw, 5.6rem);
+  line-height: 0.92;
+  color: #1f130d;
+  text-shadow: 0 1px 0 rgba(255, 250, 233, 0.32);
+}
+
+.intro {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: rgba(35, 18, 12, 0.88);
+}
+
+.game-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 720px) minmax(260px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.game-panel,
+.info-card {
+  background:
+    linear-gradient(180deg, rgba(247, 217, 168, 0.08), transparent 24%),
+    linear-gradient(180deg, var(--panel-alt), var(--panel));
+  border: 1px solid rgba(255, 231, 195, 0.14);
+  border-radius: 28px;
+  box-shadow:
+    0 24px 70px var(--track-shadow),
+    inset 0 1px 0 rgba(255, 250, 240, 0.08);
+}
+
+.game-panel {
+  padding: 18px;
+}
+
+.hud {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hud-card,
+.boss-panel {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(13, 13, 12, 0.28);
+  border: 1px solid rgba(255, 238, 206, 0.08);
+}
+
+.hud-card strong,
+.boss-copy strong {
+  display: block;
+  margin-top: 6px;
+  font-size: clamp(1.1rem, 3vw, 1.6rem);
+}
+
+.boss-panel {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.boss-copy {
+  min-width: 110px;
+}
+
+.garage-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 12px;
+  align-items: stretch;
+  margin-top: 12px;
+}
+
+.garage-card {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(13, 13, 12, 0.28);
+  border: 1px solid rgba(255, 238, 206, 0.08);
+}
+
+.garage-card strong {
+  display: block;
+  margin-top: 6px;
+  font-size: clamp(1rem, 2.6vw, 1.3rem);
+}
+
+.paint-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.paint-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.48);
+  box-shadow:
+    0 0 0 2px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.garage-button {
+  min-width: 132px;
+  min-height: 100%;
+  padding: 0 22px;
+  color: var(--ink);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
+    rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 238, 206, 0.14);
+  box-shadow:
+    inset 0 -3px 0 rgba(0, 0, 0, 0.2),
+    0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
+.boss-meter {
+  height: 18px;
+  border-radius: 999px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    rgba(255, 255, 255, 0.08);
+}
+
+.boss-meter span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f4d35e, #e07a1d 48%, #d6362d);
+  transition: width 120ms linear;
+}
+
+.stage-frame {
+  position: relative;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 248, 224, 0.08), transparent 24%),
+    #0c0a09;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 238, 206, 0.08),
+    0 14px 40px rgba(0, 0, 0, 0.42);
+}
+
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 20px;
+  background: #18110d;
+}
+
+.overlay {
+  position: absolute;
+  inset: 12px;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(8, 8, 8, 0.68);
+  backdrop-filter: blur(6px);
+  transition: opacity 180ms ease;
+}
+
+.overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.overlay-card {
+  width: min(100%, 420px);
+  padding: 24px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 245, 216, 0.06), transparent 30%),
+    rgba(38, 25, 16, 0.94);
+  border: 1px solid rgba(255, 240, 209, 0.12);
+  text-align: center;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.32);
+}
+
+.overlay-card h2 {
+  margin: 8px 0 12px;
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 0.95;
+}
+
+.overlay-card p {
+  margin: 0;
+  line-height: 1.55;
+  color: rgba(248, 241, 222, 0.86);
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+}
+
+#startButton,
+.touch-controls button {
+  min-height: 52px;
+  padding: 0 24px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#startButton {
+  margin-top: 20px;
+  color: #042724;
+  background: linear-gradient(180deg, #8cf6ea, var(--accent));
+  box-shadow:
+    inset 0 -3px 0 rgba(0, 0, 0, 0.18),
+    0 14px 28px rgba(0, 0, 0, 0.24);
+}
+
+.touch-controls {
+  display: none;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.touch-controls button {
+  flex: 1;
+  color: var(--ink);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 238, 206, 0.12);
+}
+
+.info-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.info-card {
+  padding: 18px;
+  animation: rise-in 800ms ease-out both;
+}
+
+.info-card h2 {
+  margin: 0 0 10px;
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  letter-spacing: 0.04em;
+  font-size: 1.65rem;
+}
+
+.info-card p {
+  margin: 0;
+  color: rgba(248, 241, 222, 0.86);
+  line-height: 1.5;
+}
+
+.info-card p + p {
+  margin-top: 10px;
+}
+
+.info-card span {
+  display: inline-block;
+  min-width: 92px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.garage-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(9, 7, 6, 0.72);
+  backdrop-filter: blur(12px);
+}
+
+.garage-modal.hidden {
+  display: none;
+}
+
+.garage-window {
+  width: min(1080px, 100%);
+  max-height: min(86vh, 920px);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 22px;
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, rgba(255, 246, 222, 0.08), transparent 18%),
+    linear-gradient(180deg, rgba(57, 39, 22, 0.98), rgba(22, 18, 15, 0.98));
+  border: 1px solid rgba(255, 233, 190, 0.14);
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.46),
+    inset 0 1px 0 rgba(255, 250, 234, 0.08);
+}
+
+.garage-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: start;
+}
+
+.garage-header h2 {
+  margin: 6px 0 8px;
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 0.94;
+}
+
+.garage-header p:last-child {
+  margin: 0;
+  color: rgba(248, 241, 222, 0.74);
+}
+
+.garage-close {
+  min-width: 104px;
+  min-height: 48px;
+  padding: 0 18px;
+  color: var(--ink);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
+    rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 238, 206, 0.14);
+}
+
+.garage-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.garage-summary-card {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 238, 206, 0.08);
+}
+
+.garage-summary-card strong {
+  display: block;
+  margin-top: 6px;
+  font-size: clamp(1rem, 2.8vw, 1.35rem);
+}
+
+.garage-tabs {
+  display: inline-flex;
+  gap: 10px;
+  padding: 6px;
+  width: fit-content;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 238, 206, 0.08);
+}
+
+.garage-tab {
+  min-height: 42px;
+  padding: 0 18px;
+  color: rgba(248, 241, 222, 0.8);
+  font-weight: 700;
+  background: transparent;
+}
+
+.garage-tab.is-active {
+  color: #08211d;
+  background: linear-gradient(180deg, #8cf6ea, var(--accent));
+}
+
+.garage-section {
+  display: none;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.garage-section.is-active {
+  display: block;
+}
+
+.garage-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.driver-grid {
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+}
+
+.color-grid {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+}
+
+.garage-item {
+  position: relative;
+  padding: 14px;
+  border-radius: 22px;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  text-align: left;
+  color: var(--ink);
+  background:
+    linear-gradient(180deg, rgba(255, 247, 228, 0.08), transparent 22%),
+    rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 238, 206, 0.08);
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.garage-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 238, 206, 0.22);
+}
+
+.garage-item.is-selected {
+  border-color: rgba(140, 246, 234, 0.6);
+  background:
+    linear-gradient(180deg, rgba(140, 246, 234, 0.18), transparent 24%),
+    rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.18);
+}
+
+.garage-item.is-locked {
+  opacity: 0.62;
+  filter: grayscale(0.18);
+}
+
+.garage-item strong,
+.garage-item span {
+  width: 100%;
+}
+
+.garage-item strong {
+  font-size: 1rem;
+}
+
+.garage-item span {
+  font-size: 0.84rem;
+  color: rgba(248, 241, 222, 0.68);
+}
+
+.garage-item .locked-copy {
+  color: rgba(242, 201, 134, 0.8);
+}
+
+.driver-preview {
+  width: 84px;
+  height: 84px;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.18), transparent 58%),
+    rgba(13, 13, 12, 0.28);
+  border: 1px solid rgba(255, 238, 206, 0.08);
+}
+
+.paint-preview {
+  width: 100%;
+  height: 84px;
+  border-radius: 18px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 26%),
+    var(--paint-body, #19c1b1);
+}
+
+.paint-preview::before,
+.paint-preview::after {
+  content: "";
+  position: absolute;
+}
+
+.paint-preview::before {
+  inset: 14px 18px 24px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 28%),
+    var(--paint-trim, #0b6e67);
+}
+
+.paint-preview::after {
+  left: 20px;
+  right: 20px;
+  bottom: 14px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--paint-glow, rgba(255, 255, 255, 0.35));
+  opacity: 0.9;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 980px) {
+  .game-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-copy h1 {
+    max-width: 11ch;
+  }
+}
+
+@media (max-width: 720px) {
+  .page-shell {
+    width: min(100% - 18px, 1180px);
+    padding-top: 18px;
+  }
+
+  .hud {
+    grid-template-columns: 1fr;
+  }
+
+  .boss-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .garage-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .garage-button {
+    min-height: 52px;
+  }
+
+  .touch-controls {
+    display: flex;
+  }
+
+  .garage-header,
+  .garage-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .garage-header {
+    display: grid;
+  }
+
+  .garage-window {
+    padding: 16px;
+    max-height: min(90vh, 920px);
+  }
+
+  .garage-tabs {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
