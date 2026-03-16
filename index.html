@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Highway Boss Run</title>
+  <title>The Road Trip</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="page-shell">
     <header class="hero-copy">
-      <p class="eyebrow">Highway Boss Run</p>
+      <p class="eyebrow">The Road Trip</p>
       <h1>Three lanes. Endless pressure. One boss at the end of the road.</h1>
       <p class="intro">
         Slide between lanes, dodge the traffic and scrap, then lock onto the boss rig to break its armor.
@@ -34,7 +34,7 @@
           </div>
           <div class="hud-card">
             <span class="label">Route</span>
-            <strong id="routeValue">Paris, France</strong>
+            <strong id="routeValue">Loading</strong>
           </div>
         </div>
 
@@ -62,7 +62,7 @@
           </div>
           <div class="garage-card">
             <span class="label">Collection</span>
-            <strong id="collectionValue">0 / 40 drivers · 0 / 20 paints</strong>
+            <strong id="collectionValue">0 / 40 drivers · 0 / 20 paints · 1 / 100 places</strong>
           </div>
           <button id="garageButton" class="garage-button" type="button">Garage</button>
         </div>
@@ -72,7 +72,7 @@
             id="gameCanvas"
             width="480"
             height="800"
-            aria-label="A three lane highway driving game"
+            aria-label="The Road Trip, a three lane driving game"
           ></canvas>
 
           <div class="overlay" id="overlay">
@@ -98,8 +98,9 @@
         <div class="info-card">
           <h2>How it works</h2>
           <p>There are only three lanes, so every obstacle pattern leaves one deliberate escape route.</p>
-          <p>Every three boss wins unlock the next place on a 100-stop world tour, and each stop gets harder.</p>
+          <p>Every boss win unlocks the next place on a 100-stop world tour, and each stop gets a little harder.</p>
           <p>Beat a boss to recruit one random animal driver. Rainbow drops during boss fights unlock new paint colors.</p>
+          <p>Bubble pickups give you 10 seconds of protection, so you can smash through obstacles without losing a life.</p>
         </div>
         <div class="info-card">
           <h2>Controls</h2>
@@ -123,24 +124,29 @@
         <button id="garageCloseButton" class="garage-close" type="button" aria-label="Close garage">Close</button>
       </div>
 
-      <div class="garage-summary">
-        <div class="garage-summary-card">
-          <span class="label">Drivers</span>
-          <strong id="garageDriversCount">1 / 40</strong>
+        <div class="garage-summary">
+          <div class="garage-summary-card">
+            <span class="label">Drivers</span>
+            <strong id="garageDriversCount">1 / 40</strong>
+          </div>
+          <div class="garage-summary-card">
+            <span class="label">Paints</span>
+            <strong id="garageColorsCount">1 / 20</strong>
+          </div>
+          <div class="garage-summary-card">
+            <span class="label">Places</span>
+            <strong id="garageRoutesCount">1 / 100</strong>
+          </div>
+          <div class="garage-summary-card">
+            <span class="label">Selected</span>
+            <strong id="garageSelectionValue">Loading</strong>
+          </div>
         </div>
-        <div class="garage-summary-card">
-          <span class="label">Paints</span>
-          <strong id="garageColorsCount">1 / 20</strong>
-        </div>
-        <div class="garage-summary-card">
-          <span class="label">Selected</span>
-          <strong id="garageSelectionValue">Loading</strong>
-        </div>
-      </div>
 
       <div class="garage-tabs" role="tablist" aria-label="Garage sections">
         <button type="button" class="garage-tab is-active" data-tab="drivers" role="tab" aria-selected="true">Drivers</button>
         <button type="button" class="garage-tab" data-tab="colors" role="tab" aria-selected="false">Paint</button>
+        <button type="button" class="garage-tab" data-tab="routes" role="tab" aria-selected="false">Places</button>
       </div>
 
       <section class="garage-section is-active" data-panel="drivers">
@@ -149,6 +155,10 @@
 
       <section class="garage-section" data-panel="colors">
         <div class="garage-grid color-grid" id="colorGrid"></div>
+      </section>
+
+      <section class="garage-section" data-panel="routes">
+        <div class="garage-grid route-grid" id="routeGrid"></div>
       </section>
     </div>
   </div>

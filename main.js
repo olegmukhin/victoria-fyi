@@ -5,6 +5,7 @@ const ui = {
   lives: document.getElementById("livesValue"),
   distance: document.getElementById("distanceValue"),
   phase: document.getElementById("phaseValue"),
+  route: document.getElementById("routeValue"),
   boss: document.getElementById("bossValue"),
   bossFill: document.getElementById("bossMeterFill"),
   driver: document.getElementById("driverValue"),
@@ -20,13 +21,16 @@ const ui = {
   garageButton: document.getElementById("garageButton"),
   garageModal: document.getElementById("garageModal"),
   garageCloseButton: document.getElementById("garageCloseButton"),
+  garageSubtitle: document.getElementById("garageSubtitle"),
   garageTabs: Array.from(document.querySelectorAll(".garage-tab")),
   garagePanels: Array.from(document.querySelectorAll(".garage-section")),
   garageDriversCount: document.getElementById("garageDriversCount"),
   garageColorsCount: document.getElementById("garageColorsCount"),
+  garageRoutesCount: document.getElementById("garageRoutesCount"),
   garageSelectionValue: document.getElementById("garageSelectionValue"),
   driverGrid: document.getElementById("driverGrid"),
   colorGrid: document.getElementById("colorGrid"),
+  routeGrid: document.getElementById("routeGrid"),
 };
 
 const WORLD = {
@@ -41,14 +45,17 @@ WORLD.laneWidth = WORLD.roadWidth / WORLD.lanes;
 
 const STORAGE_KEY = "highway-boss-run-garage-v1";
 const PLAYER_Y = WORLD.height - 112;
-const BOSS_DISTANCE = 1800;
+const BASE_BOSS_DISTANCE = 1800;
+const ROUTE_UNLOCK_INTERVAL = 1;
 const MAX_LIVES = 3;
+const SHIELD_DURATION = 10;
 const RACE_LOOKAHEAD = 3.6;
 const PATH_SAMPLE_STEP = 0.05;
 const LANE_SWITCH_TIME = 0.25;
 const LANE_SWITCH_STEPS = Math.ceil(LANE_SWITCH_TIME / PATH_SAMPLE_STEP);
 const STARTER_COLOR_ID = "teal-pulse";
-const NON_BLOCKING_OBSTACLE_TYPES = new Set(["heart", "rainbow"]);
+const STARTER_ROUTE_ID = "paris-france";
+const NON_BLOCKING_OBSTACLE_TYPES = new Set(["heart", "rainbow", "bubble"]);
 
 const DRIVER_LIBRARY = [
   { id: "ant", name: "Ant", family: "Insect", group: "insect", primary: "#7c3f17", secondary: "#28120a", accent: "#f6ad14", trait: "antenna" },
@@ -116,8 +123,140 @@ const COLOR_LIBRARY = [
   { id: "citrus-bolt", name: "Citrus Bolt", body: "#f59e0b", trim: "#b45309", highlight: "#fff7ed", glow: "rgba(245, 158, 11, 0.34)", canopy: "rgba(255, 247, 237, 0.72)" },
 ];
 
+const ROUTE_LIBRARY = [
+  { id: "paris-france", order: 1, place: "Paris", country: "France", landmark: "Eiffel Tower", theme: "bistro", landmarkType: "tower" },
+  { id: "london-united-kingdom", order: 2, place: "London", country: "United Kingdom", landmark: "Big Ben", theme: "royal", landmarkType: "clocktower" },
+  { id: "rome-italy", order: 3, place: "Rome", country: "Italy", landmark: "Colosseum", theme: "sunset", landmarkType: "arena" },
+  { id: "madrid-spain", order: 4, place: "Madrid", country: "Spain", landmark: "Puerta de Alcala", theme: "festival", landmarkType: "gate" },
+  { id: "lisbon-portugal", order: 5, place: "Lisbon", country: "Portugal", landmark: "Belem Tower", theme: "coastal", landmarkType: "tower" },
+  { id: "amsterdam-netherlands", order: 6, place: "Amsterdam", country: "Netherlands", landmark: "Canal Houses", theme: "river", landmarkType: "skyline" },
+  { id: "brussels-belgium", order: 7, place: "Brussels", country: "Belgium", landmark: "Atomium", theme: "market", landmarkType: "orb" },
+  { id: "dublin-ireland", order: 8, place: "Dublin", country: "Ireland", landmark: "Samuel Beckett Bridge", theme: "coastal", landmarkType: "bridge" },
+  { id: "berlin-germany", order: 9, place: "Berlin", country: "Germany", landmark: "Brandenburg Gate", theme: "midnight", landmarkType: "gate" },
+  { id: "vienna-austria", order: 10, place: "Vienna", country: "Austria", landmark: "Riesenrad", theme: "royal", landmarkType: "wheel" },
+  { id: "prague-czechia", order: 11, place: "Prague", country: "Czechia", landmark: "Charles Bridge", theme: "midnight", landmarkType: "bridge" },
+  { id: "budapest-hungary", order: 12, place: "Budapest", country: "Hungary", landmark: "Parliament", theme: "river", landmarkType: "parliament" },
+  { id: "athens-greece", order: 13, place: "Athens", country: "Greece", landmark: "Parthenon", theme: "desert", landmarkType: "temple" },
+  { id: "oslo-norway", order: 14, place: "Oslo", country: "Norway", landmark: "Opera House", theme: "fjord", landmarkType: "sail" },
+  { id: "stockholm-sweden", order: 15, place: "Stockholm", country: "Sweden", landmark: "City Hall", theme: "aurora", landmarkType: "tower" },
+  { id: "copenhagen-denmark", order: 16, place: "Copenhagen", country: "Denmark", landmark: "Nyhavn", theme: "coastal", landmarkType: "skyline" },
+  { id: "helsinki-finland", order: 17, place: "Helsinki", country: "Finland", landmark: "Cathedral", theme: "snow", landmarkType: "cathedral" },
+  { id: "reykjavik-iceland", order: 18, place: "Reykjavik", country: "Iceland", landmark: "Hallgrimskirkja", theme: "volcanic", landmarkType: "cathedral" },
+  { id: "warsaw-poland", order: 19, place: "Warsaw", country: "Poland", landmark: "Palace of Culture", theme: "midnight", landmarkType: "tower" },
+  { id: "zurich-switzerland", order: 20, place: "Zurich", country: "Switzerland", landmark: "Alpine Skyline", theme: "alpine", landmarkType: "mountain" },
+  { id: "rabat-morocco", order: 21, place: "Rabat", country: "Morocco", landmark: "Hassan Tower", theme: "desert", landmarkType: "tower" },
+  { id: "cairo-egypt", order: 22, place: "Cairo", country: "Egypt", landmark: "Giza Pyramids", theme: "desert", landmarkType: "pyramid" },
+  { id: "nairobi-kenya", order: 23, place: "Nairobi", country: "Kenya", landmark: "Savanna Gate", theme: "savanna", landmarkType: "acacia" },
+  { id: "cape-town-south-africa", order: 24, place: "Cape Town", country: "South Africa", landmark: "Table Mountain", theme: "coastal", landmarkType: "mountain" },
+  { id: "lagos-nigeria", order: 25, place: "Lagos", country: "Nigeria", landmark: "Third Mainland Bridge", theme: "river", landmarkType: "bridge" },
+  { id: "accra-ghana", order: 26, place: "Accra", country: "Ghana", landmark: "Black Star Square", theme: "festival", landmarkType: "star" },
+  { id: "dakar-senegal", order: 27, place: "Dakar", country: "Senegal", landmark: "African Renaissance Monument", theme: "coastal", landmarkType: "statue" },
+  { id: "tunis-tunisia", order: 28, place: "Tunis", country: "Tunisia", landmark: "Bab el Bhar", theme: "market", landmarkType: "gate" },
+  { id: "addis-ababa-ethiopia", order: 29, place: "Addis Ababa", country: "Ethiopia", landmark: "Lion of Judah Arch", theme: "highland", landmarkType: "arch" },
+  { id: "dar-es-salaam-tanzania", order: 30, place: "Dar es Salaam", country: "Tanzania", landmark: "Baobab Coast", theme: "tropical", landmarkType: "baobab" },
+  { id: "new-york-united-states", order: 31, place: "New York", country: "United States", landmark: "Statue of Liberty", theme: "neon", landmarkType: "statue" },
+  { id: "mexico-city-mexico", order: 32, place: "Mexico City", country: "Mexico", landmark: "Palacio de Bellas Artes", theme: "festival", landmarkType: "palace" },
+  { id: "havana-cuba", order: 33, place: "Havana", country: "Cuba", landmark: "Malecon", theme: "sunset", landmarkType: "skyline" },
+  { id: "kingston-jamaica", order: 34, place: "Kingston", country: "Jamaica", landmark: "Carnival Stage", theme: "tropical", landmarkType: "stage" },
+  { id: "panama-city-panama", order: 35, place: "Panama City", country: "Panama", landmark: "Canal Locks", theme: "river", landmarkType: "locks" },
+  { id: "bogota-colombia", order: 36, place: "Bogota", country: "Colombia", landmark: "Monserrate", theme: "highland", landmarkType: "mountain" },
+  { id: "lima-peru", order: 37, place: "Lima", country: "Peru", landmark: "Costa Verde", theme: "coastal", landmarkType: "cliff" },
+  { id: "santiago-chile", order: 38, place: "Santiago", country: "Chile", landmark: "Andes Skyline", theme: "alpine", landmarkType: "mountain" },
+  { id: "buenos-aires-argentina", order: 39, place: "Buenos Aires", country: "Argentina", landmark: "Obelisk", theme: "midnight", landmarkType: "obelisk" },
+  { id: "rio-brazil", order: 40, place: "Rio de Janeiro", country: "Brazil", landmark: "Christ the Redeemer", theme: "sunset", landmarkType: "statue" },
+  { id: "ottawa-canada", order: 41, place: "Ottawa", country: "Canada", landmark: "Parliament Hill", theme: "aurora", landmarkType: "parliament" },
+  { id: "san-jose-costa-rica", order: 42, place: "San Jose", country: "Costa Rica", landmark: "Cloud Forest Gate", theme: "jungle", landmarkType: "forest" },
+  { id: "guatemala-city-guatemala", order: 43, place: "Guatemala City", country: "Guatemala", landmark: "Mayan Steps", theme: "jungle", landmarkType: "pyramid" },
+  { id: "san-salvador-el-salvador", order: 44, place: "San Salvador", country: "El Salvador", landmark: "Volcano Belt", theme: "volcanic", landmarkType: "mountain" },
+  { id: "tegucigalpa-honduras", order: 45, place: "Tegucigalpa", country: "Honduras", landmark: "Hilltop Basilica", theme: "highland", landmarkType: "cathedral" },
+  { id: "managua-nicaragua", order: 46, place: "Managua", country: "Nicaragua", landmark: "Lakefront Promenade", theme: "volcanic", landmarkType: "skyline" },
+  { id: "santo-domingo-dominican-republic", order: 47, place: "Santo Domingo", country: "Dominican Republic", landmark: "Colonial Zone", theme: "sunset", landmarkType: "fort" },
+  { id: "georgetown-guyana", order: 48, place: "Georgetown", country: "Guyana", landmark: "Stilted Market", theme: "river", landmarkType: "market" },
+  { id: "paramaribo-suriname", order: 49, place: "Paramaribo", country: "Suriname", landmark: "River Cathedral", theme: "river", landmarkType: "cathedral" },
+  { id: "quito-ecuador", order: 50, place: "Quito", country: "Ecuador", landmark: "Middle of the World", theme: "highland", landmarkType: "monument" },
+  { id: "caracas-venezuela", order: 51, place: "Caracas", country: "Venezuela", landmark: "Avila Ridge", theme: "mountain", landmarkType: "mountain" },
+  { id: "la-paz-bolivia", order: 52, place: "La Paz", country: "Bolivia", landmark: "Cable Car Skyline", theme: "highland", landmarkType: "cable" },
+  { id: "asuncion-paraguay", order: 53, place: "Asuncion", country: "Paraguay", landmark: "River Palace", theme: "river", landmarkType: "palace" },
+  { id: "montevideo-uruguay", order: 54, place: "Montevideo", country: "Uruguay", landmark: "Rambla", theme: "coastal", landmarkType: "coastline" },
+  { id: "tokyo-japan", order: 55, place: "Tokyo", country: "Japan", landmark: "Tokyo Tower", theme: "neon", landmarkType: "tower" },
+  { id: "seoul-south-korea", order: 56, place: "Seoul", country: "South Korea", landmark: "Gyeongbokgung", theme: "neon", landmarkType: "palace" },
+  { id: "beijing-china", order: 57, place: "Beijing", country: "China", landmark: "Temple of Heaven", theme: "royal", landmarkType: "temple" },
+  { id: "taipei-taiwan", order: 58, place: "Taipei", country: "Taiwan", landmark: "Taipei 101", theme: "storm", landmarkType: "tower" },
+  { id: "bangkok-thailand", order: 59, place: "Bangkok", country: "Thailand", landmark: "Grand Palace", theme: "market", landmarkType: "palace" },
+  { id: "hanoi-vietnam", order: 60, place: "Hanoi", country: "Vietnam", landmark: "Old Quarter Gate", theme: "festival", landmarkType: "gate" },
+  { id: "kuala-lumpur-malaysia", order: 61, place: "Kuala Lumpur", country: "Malaysia", landmark: "Petronas Towers", theme: "storm", landmarkType: "towers" },
+  { id: "singapore-singapore", order: 62, place: "Singapore", country: "Singapore", landmark: "Marina Bay", theme: "neon", landmarkType: "skyline" },
+  { id: "jakarta-indonesia", order: 63, place: "Jakarta", country: "Indonesia", landmark: "National Monument", theme: "storm", landmarkType: "monument" },
+  { id: "manila-philippines", order: 64, place: "Manila", country: "Philippines", landmark: "Intramuros Gate", theme: "storm", landmarkType: "gate" },
+  { id: "new-delhi-india", order: 65, place: "New Delhi", country: "India", landmark: "India Gate", theme: "festival", landmarkType: "arch" },
+  { id: "islamabad-pakistan", order: 66, place: "Islamabad", country: "Pakistan", landmark: "Faisal Mosque", theme: "highland", landmarkType: "mosque" },
+  { id: "dhaka-bangladesh", order: 67, place: "Dhaka", country: "Bangladesh", landmark: "River Launches", theme: "river", landmarkType: "skyline" },
+  { id: "colombo-sri-lanka", order: 68, place: "Colombo", country: "Sri Lanka", landmark: "Lotus Tower", theme: "tropical", landmarkType: "tower" },
+  { id: "kathmandu-nepal", order: 69, place: "Kathmandu", country: "Nepal", landmark: "Himalaya Gate", theme: "alpine", landmarkType: "mountain" },
+  { id: "thimphu-bhutan", order: 70, place: "Thimphu", country: "Bhutan", landmark: "Dzong Fortress", theme: "highland", landmarkType: "fortress" },
+  { id: "ulaanbaatar-mongolia", order: 71, place: "Ulaanbaatar", country: "Mongolia", landmark: "Steppe Monument", theme: "savanna", landmarkType: "monument" },
+  { id: "astana-kazakhstan", order: 72, place: "Astana", country: "Kazakhstan", landmark: "Bayterek", theme: "savanna", landmarkType: "tower" },
+  { id: "tashkent-uzbekistan", order: 73, place: "Tashkent", country: "Uzbekistan", landmark: "Registan Arch", theme: "desert", landmarkType: "arch" },
+  { id: "ashgabat-turkmenistan", order: 74, place: "Ashgabat", country: "Turkmenistan", landmark: "White Marble Arch", theme: "desert", landmarkType: "arch" },
+  { id: "dushanbe-tajikistan", order: 75, place: "Dushanbe", country: "Tajikistan", landmark: "Pamir Crown", theme: "highland", landmarkType: "mountain" },
+  { id: "bishkek-kyrgyzstan", order: 76, place: "Bishkek", country: "Kyrgyzstan", landmark: "Tian Shan Gate", theme: "highland", landmarkType: "mountain" },
+  { id: "tehran-iran", order: 77, place: "Tehran", country: "Iran", landmark: "Azadi Tower", theme: "desert", landmarkType: "tower" },
+  { id: "baghdad-iraq", order: 78, place: "Baghdad", country: "Iraq", landmark: "Abbasid Arch", theme: "desert", landmarkType: "arch" },
+  { id: "riyadh-saudi-arabia", order: 79, place: "Riyadh", country: "Saudi Arabia", landmark: "Kingdom Tower", theme: "desert", landmarkType: "tower" },
+  { id: "abu-dhabi-united-arab-emirates", order: 80, place: "Abu Dhabi", country: "United Arab Emirates", landmark: "Sheikh Zayed Grand Mosque", theme: "coastal", landmarkType: "mosque" },
+  { id: "muscat-oman", order: 81, place: "Muscat", country: "Oman", landmark: "Muttrah Fort", theme: "coastal", landmarkType: "fort" },
+  { id: "doha-qatar", order: 82, place: "Doha", country: "Qatar", landmark: "Corniche Skyline", theme: "storm", landmarkType: "skyline" },
+  { id: "amman-jordan", order: 83, place: "Amman", country: "Jordan", landmark: "Citadel", theme: "desert", landmarkType: "citadel" },
+  { id: "jerusalem-israel", order: 84, place: "Jerusalem", country: "Israel", landmark: "Old City Walls", theme: "stone", landmarkType: "fort" },
+  { id: "beirut-lebanon", order: 85, place: "Beirut", country: "Lebanon", landmark: "Pigeon Rocks", theme: "coastal", landmarkType: "cliff" },
+  { id: "ankara-turkiye", order: 86, place: "Ankara", country: "Turkiye", landmark: "Anitkabir", theme: "stone", landmarkType: "palace" },
+  { id: "moscow-russia", order: 87, place: "Moscow", country: "Russia", landmark: "Saint Basil's", theme: "snow", landmarkType: "cathedral" },
+  { id: "canberra-australia", order: 88, place: "Canberra", country: "Australia", landmark: "Parliament Triangle", theme: "outback", landmarkType: "parliament" },
+  { id: "wellington-new-zealand", order: 89, place: "Wellington", country: "New Zealand", landmark: "Harbor Hills", theme: "fjord", landmarkType: "harbor" },
+  { id: "suva-fiji", order: 90, place: "Suva", country: "Fiji", landmark: "Coral Promenade", theme: "reef", landmarkType: "coastline" },
+  { id: "port-vila-vanuatu", order: 91, place: "Port Vila", country: "Vanuatu", landmark: "Volcano Bay", theme: "volcanic", landmarkType: "volcano" },
+  { id: "apia-samoa", order: 92, place: "Apia", country: "Samoa", landmark: "Polynesian Arch", theme: "reef", landmarkType: "arch" },
+  { id: "nuku-alofa-tonga", order: 93, place: "Nuku'alofa", country: "Tonga", landmark: "Whale Coast", theme: "reef", landmarkType: "coastline" },
+  { id: "port-moresby-papua-new-guinea", order: 94, place: "Port Moresby", country: "Papua New Guinea", landmark: "Rainforest Ridge", theme: "jungle", landmarkType: "forest" },
+  { id: "palikir-micronesia", order: 95, place: "Palikir", country: "Micronesia", landmark: "Lagoon Causeway", theme: "reef", landmarkType: "pier" },
+  { id: "male-maldives", order: 96, place: "Male", country: "Maldives", landmark: "Atoll Ring", theme: "reef", landmarkType: "atoll" },
+  { id: "majuro-marshall-islands", order: 97, place: "Majuro", country: "Marshall Islands", landmark: "Ocean Causeway", theme: "storm", landmarkType: "pier" },
+  { id: "tarawa-kiribati", order: 98, place: "Tarawa", country: "Kiribati", landmark: "Storm Breakwater", theme: "storm", landmarkType: "coastline" },
+  { id: "funafuti-tuvalu", order: 99, place: "Funafuti", country: "Tuvalu", landmark: "Lagoon Runway", theme: "storm", landmarkType: "pier" },
+  { id: "bridgetown-barbados", order: 100, place: "Bridgetown", country: "Barbados", landmark: "Boardwalk", theme: "tropical", landmarkType: "coastline" },
+];
+
+const ROUTE_THEME_LIBRARY = {
+  bistro: { skyTop: "#12233e", skyMid: "#6d3d55", skyBottom: "#f1b160", terrainNear: "#8a5036", terrainFar: "#4a2631", shoulder: "#c49053", postLight: "#ffe0a6", postDark: "#6a3a24", roadTop: "#46424c", roadBottom: "#121214", line: "#fce6b2", landmark: "#24161d", accent: "#facc15", bossPrimary: "#641f1d", bossSecondary: "#da4c2b", bossAccent: "#ffe38c", pack: "bistro", scenery: "city" },
+  royal: { skyTop: "#20345e", skyMid: "#6e4562", skyBottom: "#e4bc73", terrainNear: "#78503a", terrainFar: "#372438", shoulder: "#b48a5a", postLight: "#ffe4b8", postDark: "#6d3e2d", roadTop: "#4a4551", roadBottom: "#141417", line: "#fdeabf", landmark: "#201622", accent: "#f59e0b", bossPrimary: "#6d1f2f", bossSecondary: "#cc3333", bossAccent: "#f8d36a", pack: "royal", scenery: "city" },
+  sunset: { skyTop: "#3a2952", skyMid: "#c65b49", skyBottom: "#f3b56c", terrainNear: "#94472a", terrainFar: "#56281f", shoulder: "#c9874f", postLight: "#ffe4ad", postDark: "#6c321d", roadTop: "#4d403c", roadBottom: "#141112", line: "#fde0a5", landmark: "#251618", accent: "#fb923c", bossPrimary: "#6f2615", bossSecondary: "#ef6c2f", bossAccent: "#ffe08a", pack: "festival", scenery: "coast" },
+  festival: { skyTop: "#21304d", skyMid: "#87415f", skyBottom: "#f7bd67", terrainNear: "#91533a", terrainFar: "#4a2632", shoulder: "#c39055", postLight: "#ffe0a1", postDark: "#713823", roadTop: "#48434a", roadBottom: "#111215", line: "#ffe9b9", landmark: "#26171e", accent: "#ef4444", bossPrimary: "#651c24", bossSecondary: "#e24d39", bossAccent: "#ffd166", pack: "festival", scenery: "city" },
+  coastal: { skyTop: "#194a74", skyMid: "#5077a5", skyBottom: "#f7d09a", terrainNear: "#729b7b", terrainFar: "#315266", shoulder: "#d1b37a", postLight: "#fff0c7", postDark: "#745531", roadTop: "#43474c", roadBottom: "#111317", line: "#f9efcb", landmark: "#19313f", accent: "#38bdf8", bossPrimary: "#184567", bossSecondary: "#f97316", bossAccent: "#fef3c7", pack: "coastal", scenery: "coast" },
+  river: { skyTop: "#244c75", skyMid: "#58749a", skyBottom: "#efc988", terrainNear: "#698c71", terrainFar: "#2f4b57", shoulder: "#bfaa76", postLight: "#fff0c2", postDark: "#705434", roadTop: "#43464c", roadBottom: "#121418", line: "#faf0c9", landmark: "#1f2d37", accent: "#60a5fa", bossPrimary: "#1e3a5f", bossSecondary: "#dc7b2d", bossAccent: "#fef08a", pack: "harbor", scenery: "river" },
+  market: { skyTop: "#274060", skyMid: "#84513b", skyBottom: "#efbc66", terrainNear: "#9a5d38", terrainFar: "#4f2e22", shoulder: "#c8945b", postLight: "#ffe3b3", postDark: "#6d3b22", roadTop: "#4c443f", roadBottom: "#141213", line: "#fde7b6", landmark: "#2a1712", accent: "#f59e0b", bossPrimary: "#73311f", bossSecondary: "#d97706", bossAccent: "#fde68a", pack: "market", scenery: "bazaar" },
+  midnight: { skyTop: "#081526", skyMid: "#13273f", skyBottom: "#324663", terrainNear: "#394962", terrainFar: "#162238", shoulder: "#6b5f50", postLight: "#dbeafe", postDark: "#34425d", roadTop: "#404349", roadBottom: "#090a0d", line: "#f5f3ce", landmark: "#0c111c", accent: "#93c5fd", bossPrimary: "#1f2843", bossSecondary: "#bd3a30", bossAccent: "#facc15", pack: "neon", scenery: "city" },
+  desert: { skyTop: "#35516f", skyMid: "#d4873f", skyBottom: "#f6c778", terrainNear: "#b8672f", terrainFar: "#6f3b24", shoulder: "#d4a760", postLight: "#fff0bd", postDark: "#7c4e29", roadTop: "#564640", roadBottom: "#151212", line: "#fff0c1", landmark: "#352118", accent: "#f59e0b", bossPrimary: "#7c2d12", bossSecondary: "#ea580c", bossAccent: "#fde68a", pack: "market", scenery: "desert" },
+  fjord: { skyTop: "#0f2d48", skyMid: "#476d88", skyBottom: "#dbd7bc", terrainNear: "#516f73", terrainFar: "#2b4a51", shoulder: "#9f9b7f", postLight: "#f1f5f9", postDark: "#50636e", roadTop: "#425056", roadBottom: "#0e1317", line: "#f8fafc", landmark: "#14222a", accent: "#a5f3fc", bossPrimary: "#28576b", bossSecondary: "#1d8ab5", bossAccent: "#f8fafc", pack: "harbor", scenery: "fjord" },
+  aurora: { skyTop: "#07121f", skyMid: "#12314a", skyBottom: "#3f5364", terrainNear: "#354c57", terrainFar: "#182733", shoulder: "#7b7d73", postLight: "#e0f2fe", postDark: "#335266", roadTop: "#40454d", roadBottom: "#090b0d", line: "#f8fafc", landmark: "#0c141b", accent: "#6ee7b7", bossPrimary: "#0f3f4d", bossSecondary: "#14b8a6", bossAccent: "#d1fae5", pack: "alpine", scenery: "mountain" },
+  snow: { skyTop: "#394b67", skyMid: "#7d93aa", skyBottom: "#eef3f7", terrainNear: "#a7b7c5", terrainFar: "#64758b", shoulder: "#d9e2e9", postLight: "#ffffff", postDark: "#708090", roadTop: "#5a6470", roadBottom: "#11151a", line: "#fff8d8", landmark: "#223040", accent: "#e0f2fe", bossPrimary: "#405369", bossSecondary: "#c9472a", bossAccent: "#f8fafc", pack: "alpine", scenery: "snow" },
+  volcanic: { skyTop: "#190f1d", skyMid: "#5d2431", skyBottom: "#d67031", terrainNear: "#7a2c20", terrainFar: "#36131c", shoulder: "#9b5d33", postLight: "#ffd5a0", postDark: "#5f281d", roadTop: "#47373b", roadBottom: "#0d0a0d", line: "#ffe29a", landmark: "#1d1214", accent: "#ef4444", bossPrimary: "#601716", bossSecondary: "#ef4444", bossAccent: "#facc15", pack: "wild", scenery: "volcanic" },
+  alpine: { skyTop: "#224060", skyMid: "#6b8ba1", skyBottom: "#dde4db", terrainNear: "#687d71", terrainFar: "#33453f", shoulder: "#b0ab87", postLight: "#f8fafc", postDark: "#5d685e", roadTop: "#45494d", roadBottom: "#111316", line: "#fff0bc", landmark: "#162321", accent: "#d9f99d", bossPrimary: "#375244", bossSecondary: "#679436", bossAccent: "#f8fafc", pack: "alpine", scenery: "mountain" },
+  savanna: { skyTop: "#38556e", skyMid: "#d18a3d", skyBottom: "#f5ca73", terrainNear: "#9c7a3a", terrainFar: "#5a4a23", shoulder: "#c7a461", postLight: "#ffe8ae", postDark: "#6d4c24", roadTop: "#53463f", roadBottom: "#151110", line: "#fff0bf", landmark: "#2a2114", accent: "#facc15", bossPrimary: "#57411c", bossSecondary: "#b66b1c", bossAccent: "#fde68a", pack: "wild", scenery: "savanna" },
+  highland: { skyTop: "#223855", skyMid: "#6a6474", skyBottom: "#d8c89b", terrainNear: "#766957", terrainFar: "#3f3d41", shoulder: "#b7a07a", postLight: "#f7ead2", postDark: "#66513b", roadTop: "#484344", roadBottom: "#121112", line: "#fff0c6", landmark: "#1e1b20", accent: "#c4b5fd", bossPrimary: "#3f334c", bossSecondary: "#8257d6", bossAccent: "#f8deb0", pack: "alpine", scenery: "mountain" },
+  tropical: { skyTop: "#16536c", skyMid: "#3c8c8b", skyBottom: "#ffd28b", terrainNear: "#4e8c61", terrainFar: "#255246", shoulder: "#d2b16d", postLight: "#fff1c9", postDark: "#6e5730", roadTop: "#41484a", roadBottom: "#101315", line: "#fff0c1", landmark: "#16352d", accent: "#22c55e", bossPrimary: "#14532d", bossSecondary: "#f97316", bossAccent: "#fef08a", pack: "coastal", scenery: "tropical" },
+  neon: { skyTop: "#060f20", skyMid: "#201b4a", skyBottom: "#493c7a", terrainNear: "#2d3153", terrainFar: "#10162c", shoulder: "#6d5aa0", postLight: "#c4b5fd", postDark: "#2a2254", roadTop: "#3d3d45", roadBottom: "#08080d", line: "#fdf4ff", landmark: "#0a0e1d", accent: "#d946ef", bossPrimary: "#24183e", bossSecondary: "#a21caf", bossAccent: "#38bdf8", pack: "neon", scenery: "city" },
+  jungle: { skyTop: "#12384a", skyMid: "#3d7552", skyBottom: "#d2b474", terrainNear: "#3c6436", terrainFar: "#1f3f25", shoulder: "#907047", postLight: "#e7d7a5", postDark: "#4e3d22", roadTop: "#40443d", roadBottom: "#101110", line: "#f9efbf", landmark: "#122418", accent: "#84cc16", bossPrimary: "#31592c", bossSecondary: "#6ea71c", bossAccent: "#fde68a", pack: "wild", scenery: "forest" },
+  storm: { skyTop: "#09111b", skyMid: "#24364d", skyBottom: "#5b6775", terrainNear: "#4e5666", terrainFar: "#202a37", shoulder: "#8d897e", postLight: "#dbeafe", postDark: "#475569", roadTop: "#42454c", roadBottom: "#090a0d", line: "#f8fafc", landmark: "#0b1019", accent: "#38bdf8", bossPrimary: "#1f3b54", bossSecondary: "#0ea5e9", bossAccent: "#e0f2fe", pack: "neon", scenery: "storm" },
+  stone: { skyTop: "#172739", skyMid: "#6f6258", skyBottom: "#d3bf92", terrainNear: "#836e55", terrainFar: "#463b34", shoulder: "#bb9b6f", postLight: "#f8ead0", postDark: "#725538", roadTop: "#4b4642", roadBottom: "#131110", line: "#f7e7b5", landmark: "#231a16", accent: "#f5deb3", bossPrimary: "#5f4633", bossSecondary: "#9f6d43", bossAccent: "#f7d27a", pack: "market", scenery: "desert" },
+  outback: { skyTop: "#284665", skyMid: "#bb6942", skyBottom: "#f2c77f", terrainNear: "#a46039", terrainFar: "#613523", shoulder: "#c89863", postLight: "#ffe7b5", postDark: "#764625", roadTop: "#53453e", roadBottom: "#151110", line: "#fff0bf", landmark: "#2d1d17", accent: "#fb923c", bossPrimary: "#6e2e18", bossSecondary: "#d97706", bossAccent: "#fde68a", pack: "market", scenery: "savanna" },
+  reef: { skyTop: "#0e4f70", skyMid: "#3790a9", skyBottom: "#f9d693", terrainNear: "#52a08d", terrainFar: "#275f65", shoulder: "#d0b67a", postLight: "#fff5d6", postDark: "#6f5530", roadTop: "#43484b", roadBottom: "#101214", line: "#fef3c7", landmark: "#12343a", accent: "#2dd4bf", bossPrimary: "#115e59", bossSecondary: "#0f766e", bossAccent: "#fef3c7", pack: "coastal", scenery: "reef" },
+};
+
+ROUTE_THEME_LIBRARY.mountain = ROUTE_THEME_LIBRARY.highland;
+
 const DRIVER_BY_ID = new Map(DRIVER_LIBRARY.map((driver) => [driver.id, driver]));
 const COLOR_BY_ID = new Map(COLOR_LIBRARY.map((color) => [color.id, color]));
+const ROUTE_BY_ID = new Map(ROUTE_LIBRARY.map((route) => [route.id, route]));
 
 const basePlayer = {
   lane: 1,
@@ -127,6 +266,7 @@ const basePlayer = {
   width: 54,
   height: 94,
   invulnerable: 0,
+  shieldTimer: 0,
   bob: 0,
 };
 
@@ -136,6 +276,7 @@ const obstacleTypes = {
   barrier: { width: 82, height: 34, palette: ["#ffb703", "#222222"] },
   truck: { width: 70, height: 118, palette: ["#c9472a", "#631d13"] },
   heart: { width: 42, height: 38, palette: ["#fb7185", "#be123c"] },
+  bubble: { width: 40, height: 40, palette: ["#7dd3fc", "#0284c7"] },
   mine: { width: 46, height: 46, palette: ["#f97316", "#581c14"] },
   pulse: { width: 92, height: 22, palette: ["#fee2e2", "#ef4444"] },
   rainbow: { width: 96, height: 58, palette: ["#ef4444", "#f59e0b", "#facc15", "#22c55e", "#38bdf8", "#8b5cf6"] },
@@ -153,6 +294,7 @@ const game = {
   spawnTimer: 0,
   heartDropPending: false,
   heartDropTimer: 0,
+  bubbleSpawnTimer: 0,
   bannerTimer: 0,
   bannerText: "",
   flash: 0,
@@ -162,9 +304,15 @@ const game = {
   particles: [],
   player: { ...basePlayer },
   garage: loadGarageState(),
+  run: {
+    routeId: STARTER_ROUTE_ID,
+    bossDistance: BASE_BOSS_DISTANCE,
+    bossArmor: 100,
+  },
   runRewards: {
     drivers: [],
     colors: [],
+    route: null,
   },
   boss: {
     active: false,
@@ -213,14 +361,25 @@ function uniqueValidIds(ids, library) {
   return Array.from(new Set((Array.isArray(ids) ? ids : []).filter((id) => valid.has(id))));
 }
 
+function getUnlockedRouteCountForBosses(bossesDefeated) {
+  const wins = Math.max(0, Math.floor(Number.isFinite(bossesDefeated) ? bossesDefeated : 0));
+  return clamp(1 + Math.floor(wins / ROUTE_UNLOCK_INTERVAL), 1, ROUTE_LIBRARY.length);
+}
+
+function getUnlockedRoutesForBosses(bossesDefeated) {
+  return ROUTE_LIBRARY.slice(0, getUnlockedRouteCountForBosses(bossesDefeated));
+}
+
 function createInitialGarageState() {
   const starterDriver = pick(DRIVER_LIBRARY);
+  const starterRoute = ROUTE_BY_ID.get(STARTER_ROUTE_ID) || ROUTE_LIBRARY[0];
 
   return {
     unlockedDriverIds: [starterDriver.id],
     selectedDriverId: starterDriver.id,
     unlockedColorIds: [STARTER_COLOR_ID],
     selectedColorId: STARTER_COLOR_ID,
+    selectedRouteId: starterRoute.id,
     bossesDefeated: 0,
     rainbowsCollected: 0,
   };
@@ -229,23 +388,29 @@ function createInitialGarageState() {
 function normalizeGarageState(rawState) {
   const safeState = rawState && typeof rawState === "object" ? rawState : {};
   const starter = createInitialGarageState();
+  const bossesDefeated = Number.isFinite(safeState.bossesDefeated) ? Math.max(0, Math.floor(safeState.bossesDefeated)) : 0;
   const unlockedDriverIds = uniqueValidIds(safeState.unlockedDriverIds, DRIVER_LIBRARY);
   const unlockedColorIds = uniqueValidIds(safeState.unlockedColorIds, COLOR_LIBRARY);
   const resolvedDrivers = unlockedDriverIds.length ? unlockedDriverIds : starter.unlockedDriverIds;
   const resolvedColors = unlockedColorIds.length ? unlockedColorIds : starter.unlockedColorIds;
+  const unlockedRoutes = getUnlockedRoutesForBosses(bossesDefeated);
   const selectedDriverId = resolvedDrivers.includes(safeState.selectedDriverId)
     ? safeState.selectedDriverId
     : resolvedDrivers[0];
   const selectedColorId = resolvedColors.includes(safeState.selectedColorId)
     ? safeState.selectedColorId
     : resolvedColors[0];
+  const selectedRouteId = unlockedRoutes.some((route) => route.id === safeState.selectedRouteId)
+    ? safeState.selectedRouteId
+    : unlockedRoutes[unlockedRoutes.length - 1].id;
 
   return {
     unlockedDriverIds: resolvedDrivers,
     selectedDriverId,
     unlockedColorIds: resolvedColors,
     selectedColorId,
-    bossesDefeated: Number.isFinite(safeState.bossesDefeated) ? safeState.bossesDefeated : 0,
+    selectedRouteId,
+    bossesDefeated,
     rainbowsCollected: Number.isFinite(safeState.rainbowsCollected) ? safeState.rainbowsCollected : 0,
   };
 }
@@ -283,6 +448,93 @@ function getLockedDrivers() {
 function getLockedColors() {
   const unlocked = new Set(game.garage.unlockedColorIds);
   return COLOR_LIBRARY.filter((color) => !unlocked.has(color.id));
+}
+
+function formatRouteLabel(route) {
+  return `${route.place}, ${route.country}`;
+}
+
+function getUnlockedRouteCount() {
+  return getUnlockedRouteCountForBosses(game.garage.bossesDefeated);
+}
+
+function getUnlockedRoutes() {
+  return getUnlockedRoutesForBosses(game.garage.bossesDefeated);
+}
+
+function isRouteUnlocked(routeId) {
+  const route = ROUTE_BY_ID.get(routeId);
+  return Boolean(route) && route.order <= getUnlockedRouteCount();
+}
+
+function getSelectedRoute() {
+  if (isRouteUnlocked(game.garage.selectedRouteId)) {
+    return ROUTE_BY_ID.get(game.garage.selectedRouteId);
+  }
+
+  const unlockedRoutes = getUnlockedRoutes();
+  return unlockedRoutes[unlockedRoutes.length - 1] || ROUTE_BY_ID.get(STARTER_ROUTE_ID) || ROUTE_LIBRARY[0];
+}
+
+function getActiveRoute() {
+  if (game.mode === "idle") {
+    return getSelectedRoute();
+  }
+
+  return ROUTE_BY_ID.get(game.run.routeId) || getSelectedRoute();
+}
+
+function getRouteTheme(route = getActiveRoute()) {
+  return ROUTE_THEME_LIBRARY[route.theme] || ROUTE_THEME_LIBRARY.bistro;
+}
+
+function getRouteProgress(route = getActiveRoute()) {
+  return (route.order - 1) / Math.max(1, ROUTE_LIBRARY.length - 1);
+}
+
+function getRouteSettings(route = getSelectedRoute()) {
+  const progress = getRouteProgress(route);
+
+  return {
+    bossDistance: Math.round(BASE_BOSS_DISTANCE + progress * 640),
+    raceBaseSpeed: 340 + progress * 26,
+    raceGain: 170 + progress * 22,
+    spawnMin: Math.max(0.46, 0.52 - progress * 0.04),
+    spawnMax: Math.max(0.84, 0.95 - progress * 0.05),
+    bossSpeed: 430 + progress * 24,
+    bossArmor: 100 + progress * 42,
+    bossMoveMin: Math.max(0.74, 0.8 - progress * 0.04),
+    bossMoveMax: Math.max(1.18, 1.35 - progress * 0.05),
+    bossAttackMin: Math.max(0.52, 0.55 - progress * 0.03),
+    bossAttackMax: Math.max(0.88, 0.95 - progress * 0.04),
+    heartDelayMin: Math.max(3, 3.5 - progress * 0.35),
+    heartDelayMax: Math.max(5.2, 6.2 - progress * 0.4),
+    bubbleDelayMin: Math.max(7.4, 8.8 - progress * 0.5),
+    bubbleDelayMax: Math.max(10.8, 12.8 - progress * 0.6),
+  };
+}
+
+function getRouteUnlockWins(route) {
+  return (route.order - 1) * ROUTE_UNLOCK_INTERVAL;
+}
+
+function getRouteProgressCopy() {
+  const unlockedCount = getUnlockedRouteCount();
+
+  if (unlockedCount >= ROUTE_LIBRARY.length) {
+    return "All 100 places are unlocked.";
+  }
+
+  const nextRoute = ROUTE_LIBRARY[unlockedCount];
+
+  if (ROUTE_UNLOCK_INTERVAL === 1) {
+    return `Beat the next boss to unlock ${formatRouteLabel(nextRoute)}.`;
+  }
+
+  const winsIntoTier = game.garage.bossesDefeated % ROUTE_UNLOCK_INTERVAL;
+  const winsRemaining = ROUTE_UNLOCK_INTERVAL - winsIntoTier;
+
+  return `${winsRemaining} boss win${winsRemaining === 1 ? "" : "s"} until ${formatRouteLabel(nextRoute)}.`;
 }
 
 function getAvailableRainbowRewards() {
@@ -340,10 +592,11 @@ function refreshIdleOverlay() {
   }
 
   const driver = getSelectedDriver();
+  const route = getSelectedRoute();
   setOverlay(
     "Start Run",
-    "Reach the boss rig.",
-    `${driver.name} is in the seat. Open the Garage to switch animal drivers or paint, then dodge traffic, collect rainbows, and break the boss rig.`,
+    `Reach the boss in ${route.place}.`,
+    `${driver.name} is in the seat for ${formatRouteLabel(route)}. Open the Garage to switch drivers, paint, or places. Every boss win unlocks the next stop on the 100-place tour.`,
     "Start Engine"
   );
 }
@@ -351,18 +604,25 @@ function refreshIdleOverlay() {
 function syncGarageIndicators() {
   const driver = getSelectedDriver();
   const color = getSelectedColor();
+  const route = getSelectedRoute();
+  const activeRoute = getActiveRoute();
 
   ui.driver.textContent = driver.name;
   ui.paint.textContent = color.name;
+  ui.route.textContent = formatRouteLabel(game.mode === "idle" ? route : activeRoute);
   ui.paintSwatch.style.background = `linear-gradient(180deg, ${color.highlight}, ${color.body})`;
-  ui.collection.textContent = `${game.garage.unlockedDriverIds.length} / ${DRIVER_LIBRARY.length} drivers · ${game.garage.unlockedColorIds.length} / ${COLOR_LIBRARY.length} paints`;
+  ui.collection.textContent = `${game.garage.unlockedDriverIds.length} / ${DRIVER_LIBRARY.length} drivers · ${game.garage.unlockedColorIds.length} / ${COLOR_LIBRARY.length} paints · ${getUnlockedRouteCount()} / ${ROUTE_LIBRARY.length} places`;
   ui.garageDriversCount.textContent = `${game.garage.unlockedDriverIds.length} / ${DRIVER_LIBRARY.length}`;
   ui.garageColorsCount.textContent = `${game.garage.unlockedColorIds.length} / ${COLOR_LIBRARY.length}`;
-  ui.garageSelectionValue.textContent = `${driver.name} · ${color.name}`;
+  ui.garageRoutesCount.textContent = `${getUnlockedRouteCount()} / ${ROUTE_LIBRARY.length}`;
+  ui.garageSelectionValue.textContent = `${driver.name} · ${color.name} · ${route.place}`;
+  ui.garageSubtitle.textContent = `${getRouteProgressCopy()} Route order is fixed from easiest to hardest.`;
 }
 
 function syncHud() {
   ui.lives.textContent = String(game.lives);
+  const hudRoute = game.mode === "idle" ? getSelectedRoute() : getActiveRoute();
+  const routeSettings = getRouteSettings(hudRoute);
 
   if (game.mode === "boss") {
     ui.distance.textContent = "Boss reached";
@@ -371,7 +631,7 @@ function syncHud() {
   } else if (game.mode === "lost") {
     ui.distance.textContent = "Run ended";
   } else {
-    ui.distance.textContent = `${Math.max(0, Math.ceil(BOSS_DISTANCE - game.distance))} m`;
+    ui.distance.textContent = `${Math.max(0, Math.ceil(routeSettings.bossDistance - game.distance))} m`;
   }
 
   if (game.mode === "idle") {
@@ -388,9 +648,11 @@ function syncHud() {
     ui.phase.textContent = "Wrecked";
   }
 
-  const armor = game.boss.active || game.mode === "won" ? Math.max(0, Math.ceil(game.boss.armor)) : 0;
-  ui.boss.textContent = `${armor}%`;
-  ui.bossFill.style.width = `${armor}%`;
+  const armorPercent = (game.boss.active || game.mode === "won") && game.run.bossArmor > 0
+    ? Math.max(0, Math.ceil((game.boss.armor / game.run.bossArmor) * 100))
+    : 0;
+  ui.boss.textContent = `${armorPercent}%`;
+  ui.bossFill.style.width = `${armorPercent}%`;
   syncGarageIndicators();
 }
 
@@ -441,6 +703,18 @@ function setSelectedColor(colorId) {
   }
 
   game.garage.selectedColorId = colorId;
+  saveGarageState();
+  syncHud();
+  renderGarage();
+  refreshIdleOverlay();
+}
+
+function setSelectedRoute(routeId) {
+  if (!isRouteUnlocked(routeId)) {
+    return;
+  }
+
+  game.garage.selectedRouteId = routeId;
   saveGarageState();
   syncHud();
   renderGarage();
@@ -537,25 +811,66 @@ function renderGarage() {
     button.append(preview, name, state);
     ui.colorGrid.append(button);
   });
+
+  ui.routeGrid.textContent = "";
+
+  ROUTE_LIBRARY.forEach((route) => {
+    const isUnlocked = isRouteUnlocked(route.id);
+    const isSelected = getSelectedRoute().id === route.id;
+    const button = document.createElement("button");
+    const preview = document.createElement("canvas");
+    const name = document.createElement("strong");
+    const landmark = document.createElement("span");
+    const state = document.createElement("span");
+
+    button.type = "button";
+    button.className = "garage-item";
+    button.dataset.routeId = route.id;
+    button.disabled = !isUnlocked;
+    button.classList.toggle("is-selected", isSelected);
+    button.classList.toggle("is-locked", !isUnlocked);
+    preview.className = "route-preview";
+    preview.width = 176;
+    preview.height = 96;
+    name.textContent = `${route.order}. ${formatRouteLabel(route)}`;
+    landmark.textContent = route.landmark;
+    state.textContent = isUnlocked
+      ? (isSelected ? "Selected route" : "Unlocked")
+      : `Unlock at ${getRouteUnlockWins(route)} boss wins`;
+    state.className = isUnlocked ? "" : "locked-copy";
+
+    button.append(preview, name, landmark, state);
+    ui.routeGrid.append(button);
+    drawRouteBadge(preview, route, !isUnlocked);
+  });
 }
 
 function resetGame() {
+  const route = getSelectedRoute();
+  const routeSettings = getRouteSettings(route);
+
   game.mode = "race";
   game.paused = false;
-  game.speed = 340;
+  game.speed = routeSettings.raceBaseSpeed;
   game.distance = 0;
   game.lives = MAX_LIVES;
   game.roadOffset = 0;
   game.spawnTimer = 0.48;
   game.heartDropPending = false;
   game.heartDropTimer = 0;
+  game.bubbleSpawnTimer = random(routeSettings.bubbleDelayMin, routeSettings.bubbleDelayMax);
   game.bannerText = "HOLD YOUR LINE";
   game.bannerTimer = 2.2;
   game.flash = 0;
   game.time = 0;
   game.obstacles = [];
   game.particles = [];
-  game.runRewards = { drivers: [], colors: [] };
+  game.run = {
+    routeId: route.id,
+    bossDistance: routeSettings.bossDistance,
+    bossArmor: routeSettings.bossArmor,
+  };
+  game.runRewards = { drivers: [], colors: [], route: null };
   game.player = { ...basePlayer };
   game.boss = {
     active: false,
@@ -566,12 +881,13 @@ function resetGame() {
     targetY: 126,
     width: 108,
     height: 146,
-    armor: 100,
+    armor: routeSettings.bossArmor,
     moveTimer: 1.45,
     attackTimer: 1.2,
   };
   closeGarage();
   hideOverlay();
+  showBanner(`${route.place.toUpperCase()} RUN`, 2.1);
   syncHud();
 }
 
@@ -597,14 +913,15 @@ function shiftLane(direction) {
 }
 
 function startBossPhase() {
+  const route = getActiveRoute();
   game.mode = "boss";
   game.boss.active = true;
-  game.boss.armor = 100;
+  game.boss.armor = game.run.bossArmor;
   game.boss.y = -180;
   game.boss.targetY = 126;
   game.boss.attackTimer = 1;
   game.obstacles = game.obstacles.filter((obstacle) => obstacle.y < WORLD.height + 120);
-  showBanner("BOSS ON THE ROAD", 2.8);
+  showBanner(`BOSS DROPS FROM ${route.landmark.toUpperCase()}`, 2.8);
   syncHud();
 }
 
@@ -630,7 +947,7 @@ function loseRun() {
   syncHud();
 }
 
-function buildWinMessage(driverReward) {
+function buildWinMessage(driverReward, routeReward) {
   const rewardLines = [];
 
   if (driverReward) {
@@ -643,30 +960,43 @@ function buildWinMessage(driverReward) {
     rewardLines.push(`New paint collected: ${formatNameList(game.runRewards.colors.map((color) => color.name))}.`);
   }
 
+  if (routeReward) {
+    rewardLines.push(`New place unlocked: ${formatRouteLabel(routeReward)}.`);
+  } else if (getUnlockedRouteCount() >= ROUTE_LIBRARY.length) {
+    rewardLines.push("Every place on the world tour is already unlocked.");
+  } else {
+    rewardLines.push(getRouteProgressCopy());
+  }
+
   if (!rewardLines.length) {
-    rewardLines.push("You made it through the highway and broke the boss rig.");
+    rewardLines.push("You finished the road trip leg and broke the boss rig.");
   }
 
   return rewardLines.join(" ");
 }
 
 function winRun() {
+  const unlockedBefore = getUnlockedRouteCount();
   game.mode = "won";
   game.paused = false;
   game.boss.armor = 0;
   game.boss.active = false;
   game.garage.bossesDefeated += 1;
   const driverReward = unlockRandomDriver();
+  const unlockedAfter = getUnlockedRouteCount();
+  const routeReward = unlockedAfter > unlockedBefore ? ROUTE_LIBRARY[unlockedAfter - 1] : null;
 
   if (driverReward) {
     game.runRewards.drivers.push(driverReward);
   }
 
+  game.runRewards.route = routeReward;
+
   saveGarageState();
   setOverlay(
     "Boss Down",
     "The rig is broken.",
-    buildWinMessage(driverReward),
+    buildWinMessage(driverReward, routeReward),
     "Run Again"
   );
   syncHud();
@@ -750,17 +1080,22 @@ function canStartLaneMove(fromLane, toLane, startTime, windows) {
     !laneBlockedDuring(toLane, startTime, endTime, windows);
 }
 
-function getActiveHeartTarget(extraObstacles = []) {
-  const heartObstacles = game.obstacles
-    .filter((obstacle) => !obstacle.dead && obstacle.type === "heart")
-    .concat(extraObstacles.filter((obstacle) => obstacle.type === "heart"));
+function getPickupTarget(types, extraObstacles = []) {
+  const allowedTypes = new Set(types);
+  const pickups = game.obstacles
+    .filter((obstacle) => !obstacle.dead && allowedTypes.has(obstacle.type))
+    .concat(extraObstacles.filter((obstacle) => allowedTypes.has(obstacle.type)));
 
-  const targets = heartObstacles
+  const targets = pickups
     .map((obstacle) => pickupWindowForObstacle(obstacle))
     .filter(Boolean)
     .sort((left, right) => left.start - right.start);
 
   return targets[0] ?? null;
+}
+
+function getActiveSupportTarget(extraObstacles = []) {
+  return getPickupTarget(["heart"], extraObstacles) ?? getPickupTarget(["bubble"], extraObstacles);
 }
 
 function stateTouchesTarget(state, startTime, endTime, target) {
@@ -777,7 +1112,7 @@ function stateTouchesTarget(state, startTime, endTime, target) {
 
 function hasSafePath(candidates, target = null) {
   const windows = collectUpcomingWindows(candidates);
-  const activeTarget = target ?? getActiveHeartTarget(candidates);
+  const activeTarget = target ?? getActiveSupportTarget(candidates);
 
   if (!windows.length && !activeTarget) {
     return true;
@@ -883,13 +1218,14 @@ function hasSafePath(candidates, target = null) {
 }
 
 function chooseRacePattern(progress) {
+  const routePressure = getRouteProgress(getActiveRoute());
   const roll = Math.random();
 
-  if (roll < 0.34 || progress < 0.18) {
+  if (roll < 0.34 - routePressure * 0.08 || progress < 0.18) {
     return "single";
   }
 
-  if (roll < 0.78) {
+  if (roll < 0.8 - routePressure * 0.06) {
     return "double";
   }
 
@@ -948,16 +1284,26 @@ function hasHeartOnRoad() {
   return game.obstacles.some((obstacle) => !obstacle.dead && obstacle.type === "heart");
 }
 
+function hasBubbleOnRoad() {
+  return game.obstacles.some((obstacle) => !obstacle.dead && obstacle.type === "bubble");
+}
+
 function scheduleHeartDrop() {
   if (game.lives >= MAX_LIVES || hasHeartOnRoad()) {
     return;
   }
 
-  const nextTimer = random(3.5, 6.2);
+  const routeSettings = getRouteSettings(getActiveRoute());
+  const nextTimer = random(routeSettings.heartDelayMin, routeSettings.heartDelayMax);
   game.heartDropPending = true;
   game.heartDropTimer = game.heartDropTimer > 0
     ? Math.min(game.heartDropTimer, nextTimer)
     : nextTimer;
+}
+
+function scheduleBubbleSpawn() {
+  const routeSettings = getRouteSettings(getActiveRoute());
+  game.bubbleSpawnTimer = random(routeSettings.bubbleDelayMin, routeSettings.bubbleDelayMax);
 }
 
 function chooseHeartCandidate() {
@@ -978,6 +1324,36 @@ function chooseHeartCandidate() {
 
   for (const { lane } of rankedLanes) {
     const candidate = makeObstacle(lane, "heart", -120, {
+      speed: candidateSpeed,
+    });
+    const target = pickupWindowForObstacle(candidate);
+
+    if (target && hasSafePath([], target)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function chooseBubbleCandidate() {
+  const candidateSpeed = Math.max(235, game.speed - 120);
+  const upcomingWindows = collectUpcomingWindows();
+  const rankedLanes = [0, 1, 2]
+    .map((lane) => {
+      const nextThreat = upcomingWindows
+        .filter((window) => window.lane === lane)
+        .reduce((soonest, window) => Math.min(soonest, window.start), Infinity);
+
+      return {
+        lane,
+        score: nextThreat - Math.abs(lane - game.player.lane) * 0.38 + (lane === game.player.lane ? 0.25 : 0),
+      };
+    })
+    .sort((left, right) => right.score - left.score);
+
+  for (const { lane } of rankedLanes) {
+    const candidate = makeObstacle(lane, "bubble", -120, {
       speed: candidateSpeed,
     });
     const target = pickupWindowForObstacle(candidate);
@@ -1012,9 +1388,39 @@ function spawnHeartPickup() {
   showBanner("HEART ON THE ROAD", 1.9);
 }
 
+function spawnBubblePickup() {
+  if (game.player.shieldTimer > 0 || hasBubbleOnRoad() || hasHeartOnRoad()) {
+    scheduleBubbleSpawn();
+    return;
+  }
+
+  const candidate = chooseBubbleCandidate();
+
+  if (!candidate) {
+    game.bubbleSpawnTimer = 1.4;
+    return;
+  }
+
+  game.obstacles.push(candidate);
+  scheduleBubbleSpawn();
+  showBanner("BUBBLE ON THE ROAD", 1.8);
+}
+
+function updateBubbleSpawner(dt) {
+  if (game.player.shieldTimer > 0 || hasBubbleOnRoad() || hasHeartOnRoad()) {
+    return;
+  }
+
+  game.bubbleSpawnTimer -= dt;
+
+  if (game.bubbleSpawnTimer <= 0) {
+    spawnBubblePickup();
+  }
+}
+
 function spawnRacePattern() {
-  const progress = game.distance / BOSS_DISTANCE;
-  const heartTarget = getActiveHeartTarget();
+  const progress = game.distance / game.run.bossDistance;
+  const supportTarget = getActiveSupportTarget();
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const patternType = chooseRacePattern(progress);
@@ -1022,7 +1428,7 @@ function spawnRacePattern() {
     const patternSpeed = game.speed + random(42, 108);
     const candidates = buildRacePattern(patternType, safeLane, patternSpeed);
 
-    if (hasSafePath(candidates, heartTarget)) {
+    if (hasSafePath(candidates, supportTarget)) {
       game.obstacles.push(...candidates);
       return;
     }
@@ -1033,7 +1439,7 @@ function spawnRacePattern() {
   for (const lane of shuffle([0, 1, 2])) {
     const candidate = makeObstacle(lane, pick(["crate", "oil", "barrier"]), -120, { speed: patternSpeed });
 
-    if (hasSafePath([candidate], heartTarget)) {
+    if (hasSafePath([candidate], supportTarget)) {
       game.obstacles.push(candidate);
       return;
     }
@@ -1058,7 +1464,7 @@ function spawnRainbowBonus(occupiedLanes) {
 }
 
 function bossAttack() {
-  const heartTarget = getActiveHeartTarget();
+  const supportTarget = getActiveSupportTarget();
 
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const bossLane = game.boss.lane;
@@ -1091,7 +1497,7 @@ function bossAttack() {
       }
     }
 
-    if (hasSafePath(candidates, heartTarget)) {
+    if (hasSafePath(candidates, supportTarget)) {
       game.obstacles.push(...candidates);
       return;
     }
@@ -1161,6 +1567,22 @@ function handleDamageCollision(obstacle) {
   }
 }
 
+function absorbObstacleWithShield(obstacle) {
+  obstacle.dead = true;
+
+  for (let index = 0; index < 10; index += 1) {
+    spawnParticle(
+      obstacle.x + random(-10, 10),
+      obstacle.y + random(-10, 10),
+      random(-150, 150),
+      random(-140, 40),
+      random(2, 5),
+      random(0.22, 0.48),
+      pick(["#7dd3fc", "#bae6fd", "#e0f2fe"])
+    );
+  }
+}
+
 function collectHeart(obstacle) {
   obstacle.dead = true;
   game.lives = Math.min(MAX_LIVES, game.lives + 1);
@@ -1185,6 +1607,24 @@ function collectHeart(obstacle) {
   }
 
   syncHud();
+}
+
+function collectShieldBubble(obstacle) {
+  obstacle.dead = true;
+  game.player.shieldTimer = SHIELD_DURATION;
+  showBanner("BUBBLE SHIELD · 10S", 1.9);
+
+  for (let index = 0; index < 16; index += 1) {
+    spawnParticle(
+      obstacle.x + random(-10, 10),
+      obstacle.y + random(-10, 10),
+      random(-120, 120),
+      random(-160, 30),
+      random(2, 5),
+      random(0.3, 0.65),
+      pick(["#7dd3fc", "#bae6fd", "#e0f2fe"])
+    );
+  }
 }
 
 function collectRainbow(obstacle) {
@@ -1215,8 +1655,9 @@ function collectRainbow(obstacle) {
 }
 
 function updateRace(dt) {
-  const progress = game.distance / BOSS_DISTANCE;
-  game.speed = 340 + progress * 170;
+  const routeSettings = getRouteSettings(getActiveRoute());
+  const progress = game.distance / game.run.bossDistance;
+  game.speed = routeSettings.raceBaseSpeed + progress * routeSettings.raceGain;
   game.distance += game.speed * dt * 0.115;
   game.spawnTimer -= dt;
 
@@ -1228,19 +1669,22 @@ function updateRace(dt) {
     }
   }
 
+  updateBubbleSpawner(dt);
+
   if (game.spawnTimer <= 0) {
     spawnRacePattern();
-    game.spawnTimer = random(0.52, 0.95) - progress * 0.18;
+    game.spawnTimer = random(routeSettings.spawnMin, routeSettings.spawnMax) - progress * 0.18;
   }
 
-  if (game.distance >= BOSS_DISTANCE) {
-    game.distance = BOSS_DISTANCE;
+  if (game.distance >= game.run.bossDistance) {
+    game.distance = game.run.bossDistance;
     startBossPhase();
   }
 }
 
 function updateBoss(dt) {
-  game.speed = 430;
+  const routeSettings = getRouteSettings(getActiveRoute());
+  game.speed = routeSettings.bossSpeed;
   game.boss.y += (game.boss.targetY - game.boss.y) * Math.min(1, dt * 3.8);
   game.boss.x += (game.boss.targetX - game.boss.x) * Math.min(1, dt * 4.8);
   game.boss.moveTimer -= dt;
@@ -1254,14 +1698,16 @@ function updateBoss(dt) {
     }
   }
 
+  updateBubbleSpawner(dt);
+
   if (game.boss.moveTimer <= 0) {
     chooseNextBossLane();
-    game.boss.moveTimer = random(0.8, 1.35) * (0.85 + game.boss.armor / 240);
+    game.boss.moveTimer = random(routeSettings.bossMoveMin, routeSettings.bossMoveMax) * (0.85 + game.boss.armor / (game.run.bossArmor * 2.4));
   }
 
   if (game.boss.attackTimer <= 0 && game.boss.y > 80) {
     bossAttack();
-    game.boss.attackTimer = random(0.55, 0.95);
+    game.boss.attackTimer = random(routeSettings.bossAttackMin, routeSettings.bossAttackMax);
   }
 
   if (game.player.lane === game.boss.lane && game.boss.y > 60) {
@@ -1306,6 +1752,16 @@ function updateObstacles(dt) {
       return;
     }
 
+    if (obstacle.type === "bubble") {
+      collectShieldBubble(obstacle);
+      return;
+    }
+
+    if (game.player.shieldTimer > 0) {
+      absorbObstacleWithShield(obstacle);
+      return;
+    }
+
     handleDamageCollision(obstacle);
   });
 
@@ -1334,6 +1790,11 @@ function update(dt) {
   game.player.x += (game.player.targetX - game.player.x) * Math.min(1, dt * 14);
   game.player.bob += dt * 8;
   game.player.invulnerable = Math.max(0, game.player.invulnerable - dt);
+  const shieldWasActive = game.player.shieldTimer > 0;
+  game.player.shieldTimer = Math.max(0, game.player.shieldTimer - dt);
+  if (shieldWasActive && game.player.shieldTimer === 0) {
+    showBanner("SHIELD LOST", 1.4);
+  }
   game.flash = Math.max(0, game.flash - dt);
   game.bannerTimer = Math.max(0, game.bannerTimer - dt);
 
@@ -1362,43 +1823,320 @@ function roundedRect(x, y, width, height, radius) {
   ctx.closePath();
 }
 
+function roundedRectPath(targetCtx, x, y, width, height, radius) {
+  const actualRadius = Math.min(radius, width / 2, height / 2);
+  targetCtx.beginPath();
+  targetCtx.moveTo(x + actualRadius, y);
+  targetCtx.arcTo(x + width, y, x + width, y + height, actualRadius);
+  targetCtx.arcTo(x + width, y + height, x, y + height, actualRadius);
+  targetCtx.arcTo(x, y + height, x, y, actualRadius);
+  targetCtx.arcTo(x, y, x + width, y, actualRadius);
+  targetCtx.closePath();
+}
+
+function drawLandmarkSilhouette(targetCtx, route, theme, x, baseY, scale = 1) {
+  const unit = 14 * scale;
+
+  targetCtx.save();
+  targetCtx.translate(x, baseY);
+  targetCtx.fillStyle = theme.landmark;
+  targetCtx.strokeStyle = theme.accent;
+  targetCtx.lineWidth = 2 * scale;
+  targetCtx.globalAlpha = 0.94;
+
+  switch (route.landmarkType) {
+    case "tower":
+    case "clocktower":
+    case "obelisk":
+    case "monument":
+      targetCtx.fillRect(-unit * 0.55, -unit * 5.4, unit * 1.1, unit * 5.4);
+      targetCtx.fillRect(-unit * 0.9, -unit * 0.4, unit * 1.8, unit * 0.4);
+      targetCtx.fillRect(-unit * 0.28, -unit * 6.2, unit * 0.56, unit * 0.8);
+      if (route.landmarkType === "clocktower") {
+        targetCtx.fillStyle = "rgba(255, 241, 194, 0.85)";
+        targetCtx.beginPath();
+        targetCtx.arc(0, -unit * 4.4, unit * 0.45, 0, Math.PI * 2);
+        targetCtx.fill();
+      }
+      break;
+    case "towers":
+      [-unit * 0.9, unit * 0.9].forEach((offset) => {
+        targetCtx.fillStyle = theme.landmark;
+        targetCtx.fillRect(offset - unit * 0.4, -unit * 4.8, unit * 0.8, unit * 4.8);
+        targetCtx.fillRect(offset - unit * 0.14, -unit * 5.6, unit * 0.28, unit * 0.8);
+      });
+      targetCtx.fillRect(-unit * 1.8, -unit * 0.3, unit * 3.6, unit * 0.3);
+      break;
+    case "arena":
+      targetCtx.beginPath();
+      targetCtx.ellipse(0, 0, unit * 2.4, unit * 0.9, 0, Math.PI, Math.PI * 2);
+      targetCtx.lineTo(unit * 2.4, -unit * 1.2);
+      targetCtx.ellipse(0, -unit * 1.2, unit * 2.4, unit * 0.9, 0, 0, Math.PI, true);
+      targetCtx.closePath();
+      targetCtx.fill();
+      break;
+    case "gate":
+    case "arch":
+      targetCtx.fillRect(-unit * 2.4, -unit * 3.1, unit * 0.8, unit * 3.1);
+      targetCtx.fillRect(unit * 1.6, -unit * 3.1, unit * 0.8, unit * 3.1);
+      targetCtx.fillRect(-unit * 2.4, -unit * 3.7, unit * 4.8, unit * 0.8);
+      targetCtx.beginPath();
+      targetCtx.arc(0, 0, unit * 1.15, Math.PI, Math.PI * 2);
+      targetCtx.closePath();
+      targetCtx.fillStyle = theme.roadTop;
+      targetCtx.fill();
+      break;
+    case "bridge":
+    case "pier":
+    case "locks":
+    case "harbor":
+      targetCtx.fillStyle = theme.landmark;
+      targetCtx.fillRect(-unit * 2.8, -unit * 0.2, unit * 5.6, unit * 0.32);
+      for (let offset = -2; offset <= 2; offset += 1) {
+        targetCtx.fillRect(offset * unit - unit * 0.15, -unit * 2.1, unit * 0.3, unit * 2.1);
+      }
+      if (route.landmarkType === "bridge" || route.landmarkType === "harbor") {
+        targetCtx.beginPath();
+        targetCtx.moveTo(-unit * 2.3, -unit * 0.2);
+        targetCtx.quadraticCurveTo(0, -unit * 3.1, unit * 2.3, -unit * 0.2);
+        targetCtx.stroke();
+      }
+      break;
+    case "skyline":
+    case "market":
+      [-2.2, -1.2, -0.2, 1.1, 2.1].forEach((offset, index) => {
+        targetCtx.fillStyle = theme.landmark;
+        targetCtx.fillRect(offset * unit, -unit * (2 + (index % 3)), unit * 0.9, unit * (2 + (index % 3)));
+      });
+      break;
+    case "parliament":
+    case "palace":
+    case "fort":
+    case "fortress":
+    case "citadel":
+      targetCtx.fillRect(-unit * 2.8, -unit * 2.6, unit * 5.6, unit * 2.6);
+      targetCtx.fillRect(-unit * 0.55, -unit * 3.8, unit * 1.1, unit * 1.2);
+      if (route.landmarkType !== "palace") {
+        targetCtx.fillRect(-unit * 2.4, -unit * 3.2, unit * 0.45, unit * 0.6);
+        targetCtx.fillRect(unit * 1.95, -unit * 3.2, unit * 0.45, unit * 0.6);
+      }
+      break;
+    case "temple":
+    case "cathedral":
+    case "mosque":
+      targetCtx.fillRect(-unit * 2.4, -unit * 2.5, unit * 4.8, unit * 2.5);
+      targetCtx.beginPath();
+      targetCtx.moveTo(-unit * 2.8, -unit * 2.5);
+      targetCtx.lineTo(0, -unit * 4.1);
+      targetCtx.lineTo(unit * 2.8, -unit * 2.5);
+      targetCtx.closePath();
+      targetCtx.fill();
+      if (route.landmarkType === "mosque") {
+        targetCtx.beginPath();
+        targetCtx.arc(0, -unit * 2.6, unit * 0.7, Math.PI, Math.PI * 2);
+        targetCtx.fill();
+      }
+      if (route.landmarkType === "cathedral") {
+        targetCtx.fillRect(-unit * 1.8, -unit * 4.1, unit * 0.5, unit * 1.6);
+        targetCtx.fillRect(unit * 1.3, -unit * 4.1, unit * 0.5, unit * 1.6);
+      }
+      break;
+    case "pyramid":
+      targetCtx.beginPath();
+      targetCtx.moveTo(-unit * 2.7, 0);
+      targetCtx.lineTo(-unit * 0.9, -unit * 3.6);
+      targetCtx.lineTo(unit * 0.7, 0);
+      targetCtx.closePath();
+      targetCtx.fill();
+      targetCtx.beginPath();
+      targetCtx.moveTo(-unit * 0.1, 0);
+      targetCtx.lineTo(unit * 1.8, -unit * 2.5);
+      targetCtx.lineTo(unit * 3.1, 0);
+      targetCtx.closePath();
+      targetCtx.fill();
+      break;
+    case "mountain":
+    case "cliff":
+    case "volcano":
+      targetCtx.beginPath();
+      targetCtx.moveTo(-unit * 3.2, 0);
+      targetCtx.lineTo(-unit * 1.6, -unit * 3.2);
+      targetCtx.lineTo(-unit * 0.2, -unit * 1.2);
+      targetCtx.lineTo(unit * 1.3, -unit * 4.2);
+      targetCtx.lineTo(unit * 3.4, 0);
+      targetCtx.closePath();
+      targetCtx.fill();
+      if (route.landmarkType === "volcano") {
+        targetCtx.fillStyle = theme.accent;
+        targetCtx.beginPath();
+        targetCtx.moveTo(unit * 0.65, -unit * 4.1);
+        targetCtx.lineTo(unit * 1.1, -unit * 5.1);
+        targetCtx.lineTo(unit * 1.55, -unit * 4.1);
+        targetCtx.closePath();
+        targetCtx.fill();
+      }
+      break;
+    case "statue":
+      targetCtx.fillRect(-unit * 1.1, -unit * 0.5, unit * 2.2, unit * 0.5);
+      targetCtx.fillRect(-unit * 0.35, -unit * 3.4, unit * 0.7, unit * 2.9);
+      targetCtx.beginPath();
+      targetCtx.arc(0, -unit * 4, unit * 0.55, 0, Math.PI * 2);
+      targetCtx.fill();
+      break;
+    case "wheel":
+      targetCtx.beginPath();
+      targetCtx.arc(0, -unit * 2.3, unit * 1.85, 0, Math.PI * 2);
+      targetCtx.fill();
+      targetCtx.fillStyle = theme.roadTop;
+      targetCtx.beginPath();
+      targetCtx.arc(0, -unit * 2.3, unit * 1.2, 0, Math.PI * 2);
+      targetCtx.fill();
+      targetCtx.fillStyle = theme.landmark;
+      targetCtx.fillRect(-unit * 0.22, -unit * 0.4, unit * 0.44, unit * 2.5);
+      break;
+    case "orb":
+    case "star":
+      targetCtx.fillRect(-unit * 0.22, -unit * 4.2, unit * 0.44, unit * 4.2);
+      targetCtx.beginPath();
+      targetCtx.arc(0, -unit * 4.8, unit * 1.15, 0, Math.PI * 2);
+      targetCtx.fill();
+      break;
+    case "forest":
+    case "baobab":
+    case "acacia":
+      targetCtx.fillRect(-unit * 0.28, -unit * 2.2, unit * 0.56, unit * 2.2);
+      targetCtx.beginPath();
+      targetCtx.ellipse(0, -unit * 3.2, unit * 2.1, unit * 1.2, 0, 0, Math.PI * 2);
+      targetCtx.fill();
+      break;
+    case "coastline":
+    case "atoll":
+    case "stage":
+    case "sail":
+    case "cable":
+    default:
+      targetCtx.fillRect(-unit * 2.6, -unit * 1.2, unit * 5.2, unit * 1.2);
+      targetCtx.fillRect(-unit * 1.4, -unit * 2.8, unit * 2.8, unit * 1.6);
+      if (route.landmarkType === "sail") {
+        targetCtx.beginPath();
+        targetCtx.moveTo(0, -unit * 4.5);
+        targetCtx.lineTo(unit * 1.2, -unit * 1.2);
+        targetCtx.lineTo(-unit * 0.4, -unit * 1.2);
+        targetCtx.closePath();
+        targetCtx.fill();
+      }
+      break;
+  }
+
+  targetCtx.restore();
+}
+
+function drawRouteBadge(canvasElement, route, silhouette) {
+  const previewCtx = canvasElement.getContext("2d");
+  const { width, height } = canvasElement;
+  const theme = getRouteTheme(route);
+  const sky = previewCtx.createLinearGradient(0, 0, 0, height);
+
+  sky.addColorStop(0, theme.skyTop);
+  sky.addColorStop(0.58, theme.skyMid);
+  sky.addColorStop(1, theme.skyBottom);
+  previewCtx.clearRect(0, 0, width, height);
+  previewCtx.fillStyle = sky;
+  previewCtx.fillRect(0, 0, width, height);
+
+  previewCtx.globalAlpha = silhouette ? 0.65 : 1;
+  previewCtx.fillStyle = theme.terrainFar;
+  previewCtx.fillRect(0, 56, width, 14);
+  previewCtx.fillStyle = theme.terrainNear;
+  previewCtx.fillRect(0, 68, width, 28);
+  drawLandmarkSilhouette(previewCtx, route, theme, width / 2, 66, 0.42);
+
+  previewCtx.fillStyle = theme.roadTop;
+  previewCtx.beginPath();
+  previewCtx.moveTo(width * 0.24, height);
+  previewCtx.lineTo(width * 0.4, 52);
+  previewCtx.lineTo(width * 0.6, 52);
+  previewCtx.lineTo(width * 0.76, height);
+  previewCtx.closePath();
+  previewCtx.fill();
+
+  previewCtx.strokeStyle = theme.line;
+  previewCtx.lineWidth = 2;
+  previewCtx.setLineDash([7, 5]);
+  previewCtx.beginPath();
+  previewCtx.moveTo(width / 2, height);
+  previewCtx.lineTo(width / 2, 56);
+  previewCtx.stroke();
+  previewCtx.setLineDash([]);
+  previewCtx.globalAlpha = 1;
+}
+
 function drawBackground() {
+  const route = getActiveRoute();
+  const theme = getRouteTheme(route);
   const sky = ctx.createLinearGradient(0, 0, 0, WORLD.height);
-  sky.addColorStop(0, "#f7c15d");
-  sky.addColorStop(0.28, "#ef8d35");
-  sky.addColorStop(0.55, "#6f3626");
-  sky.addColorStop(1, "#241314");
+
+  sky.addColorStop(0, theme.skyTop);
+  sky.addColorStop(0.38, theme.skyMid);
+  sky.addColorStop(1, theme.skyBottom);
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, WORLD.width, WORLD.height);
 
-  ctx.fillStyle = "#8b4428";
+  ctx.fillStyle = theme.terrainFar;
   ctx.beginPath();
   ctx.moveTo(0, 250);
-  ctx.lineTo(90, 205);
-  ctx.lineTo(165, 250);
-  ctx.lineTo(290, 188);
-  ctx.lineTo(390, 248);
-  ctx.lineTo(WORLD.width, 226);
+  if (theme.scenery === "desert" || theme.scenery === "savanna") {
+    ctx.bezierCurveTo(80, 205, 140, 270, 220, 222);
+    ctx.bezierCurveTo(300, 180, 380, 250, WORLD.width, 220);
+  } else if (theme.scenery === "coast" || theme.scenery === "reef" || theme.scenery === "river" || theme.scenery === "fjord") {
+    ctx.bezierCurveTo(90, 220, 160, 260, 260, 214);
+    ctx.bezierCurveTo(340, 182, 420, 252, WORLD.width, 212);
+  } else {
+    ctx.lineTo(90, 205);
+    ctx.lineTo(165, 250);
+    ctx.lineTo(290, 188);
+    ctx.lineTo(390, 248);
+    ctx.lineTo(WORLD.width, 226);
+  }
   ctx.lineTo(WORLD.width, 360);
   ctx.lineTo(0, 360);
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = "#4c261d";
+  ctx.fillStyle = theme.terrainNear;
   ctx.beginPath();
   ctx.moveTo(0, 290);
-  ctx.lineTo(60, 250);
-  ctx.lineTo(150, 312);
-  ctx.lineTo(230, 248);
-  ctx.lineTo(340, 318);
-  ctx.lineTo(420, 272);
-  ctx.lineTo(WORLD.width, 334);
+  if (theme.scenery === "forest" || theme.scenery === "tropical") {
+    ctx.bezierCurveTo(70, 240, 130, 320, 210, 252);
+    ctx.bezierCurveTo(300, 200, 380, 324, WORLD.width, 270);
+  } else if (theme.scenery === "volcanic") {
+    ctx.lineTo(60, 290);
+    ctx.lineTo(140, 336);
+    ctx.lineTo(230, 252);
+    ctx.lineTo(325, 346);
+    ctx.lineTo(410, 266);
+    ctx.lineTo(WORLD.width, 312);
+  } else {
+    ctx.lineTo(60, 250);
+    ctx.lineTo(150, 312);
+    ctx.lineTo(230, 248);
+    ctx.lineTo(340, 318);
+    ctx.lineTo(420, 272);
+    ctx.lineTo(WORLD.width, 334);
+  }
   ctx.lineTo(WORLD.width, 420);
   ctx.lineTo(0, 420);
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = "#d78f44";
+  if (theme.scenery === "coast" || theme.scenery === "reef" || theme.scenery === "river" || theme.scenery === "fjord") {
+    ctx.fillStyle = "rgba(186, 227, 255, 0.2)";
+    ctx.fillRect(0, 322, WORLD.width, 44);
+  }
+
+  drawLandmarkSilhouette(ctx, route, theme, WORLD.width / 2, 316, 1.12);
+
+  ctx.fillStyle = theme.shoulder;
   ctx.fillRect(0, 382, WORLD.roadX, WORLD.height - 382);
   ctx.fillRect(WORLD.roadX + WORLD.roadWidth, 382, WORLD.width - WORLD.roadX - WORLD.roadWidth, WORLD.height - 382);
 
@@ -1406,21 +2144,21 @@ function drawBackground() {
   for (let y = -90; y < WORLD.height + 90; y += 90) {
     const top = y + postOffset;
     const height = 18 + (top / WORLD.height) * 24;
-    ctx.fillStyle = "#f5dfab";
+    ctx.fillStyle = theme.postLight;
     ctx.fillRect(WORLD.roadX - 18, top, 6, height);
     ctx.fillRect(WORLD.roadX + WORLD.roadWidth + 12, top, 6, height);
-    ctx.fillStyle = "#532e20";
+    ctx.fillStyle = theme.postDark;
     ctx.fillRect(WORLD.roadX - 18, top + height, 6, 10);
     ctx.fillRect(WORLD.roadX + WORLD.roadWidth + 12, top + height, 6, 10);
   }
 
   const roadGradient = ctx.createLinearGradient(0, 0, 0, WORLD.height);
-  roadGradient.addColorStop(0, "#44403c");
-  roadGradient.addColorStop(1, "#141313");
+  roadGradient.addColorStop(0, theme.roadTop);
+  roadGradient.addColorStop(1, theme.roadBottom);
   ctx.fillStyle = roadGradient;
   ctx.fillRect(WORLD.roadX, 0, WORLD.roadWidth, WORLD.height);
 
-  ctx.fillStyle = "#f7d070";
+  ctx.fillStyle = theme.line;
   ctx.fillRect(WORLD.roadX, 0, 8, WORLD.height);
   ctx.fillRect(WORLD.roadX + WORLD.roadWidth - 8, 0, 8, WORLD.height);
 
@@ -1844,6 +2582,33 @@ function drawPlayer() {
   ctx.fillRect(-18, 36, 10, 6);
   ctx.fillRect(8, 36, 10, 6);
 
+  if (flashOn) {
+    ctx.globalAlpha = 1;
+  }
+
+  if (player.shieldTimer > 0) {
+    const pulse = Math.sin(game.time * 7) * 2.5;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.shadowColor = "rgba(125, 211, 252, 0.7)";
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.arc(0, -2, 40 + pulse, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(186, 230, 253, 0.16)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(224, 242, 254, 0.92)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.94)";
+    ctx.font = '700 12px "Trebuchet MS", sans-serif';
+    ctx.textAlign = "center";
+    ctx.fillText(`${Math.ceil(player.shieldTimer)}s`, 0, -56);
+    ctx.restore();
+  }
+
   ctx.restore();
 }
 
@@ -1852,19 +2617,21 @@ function drawBoss() {
     return;
   }
 
+  const theme = getRouteTheme();
+
   ctx.save();
   ctx.translate(game.boss.x, game.boss.y);
 
   roundedRect(-54, -72, 108, 144, 20);
-  ctx.fillStyle = "#631d13";
+  ctx.fillStyle = theme.bossPrimary;
   ctx.fill();
 
   roundedRect(-46, -58, 92, 114, 18);
-  ctx.fillStyle = "#c9472a";
+  ctx.fillStyle = theme.bossSecondary;
   ctx.fill();
 
   roundedRect(-22, -34, 44, 30, 10);
-  ctx.fillStyle = "#fde68a";
+  ctx.fillStyle = theme.bossAccent;
   ctx.fill();
 
   ctx.fillStyle = "#101010";
@@ -1873,10 +2640,10 @@ function drawBoss() {
   ctx.fillRect(-59, 22, 8, 28);
   ctx.fillRect(51, 22, 8, 28);
 
-  ctx.fillStyle = "#f97316";
+  ctx.fillStyle = theme.accent;
   ctx.fillRect(-26, -66, 18, 9);
   ctx.fillRect(8, -66, 18, 9);
-  ctx.fillStyle = "#fee2e2";
+  ctx.fillStyle = theme.bossAccent;
   ctx.fillRect(-22, 56, 16, 8);
   ctx.fillRect(6, 56, 16, 8);
 
@@ -1884,6 +2651,9 @@ function drawBoss() {
 }
 
 function drawObstacle(obstacle) {
+  const theme = getRouteTheme();
+  const pack = theme.pack;
+
   ctx.save();
   ctx.translate(obstacle.x, obstacle.y);
 
@@ -1934,32 +2704,173 @@ function drawObstacle(obstacle) {
   }
 
   if (obstacle.type === "crate") {
-    roundedRect(-22, -22, 44, 44, 8);
-    ctx.fillStyle = obstacle.palette[0];
-    ctx.fill();
-    ctx.strokeStyle = obstacle.palette[1];
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(-12, -12);
-    ctx.lineTo(12, 12);
-    ctx.moveTo(-12, 12);
-    ctx.lineTo(12, -12);
-    ctx.stroke();
+    if (pack === "bistro") {
+      roundedRect(-18, -20, 36, 40, 8);
+      ctx.fillStyle = "#d97706";
+      ctx.fill();
+      ctx.fillStyle = "#facc15";
+      for (let fry = -12; fry <= 12; fry += 6) {
+        ctx.fillRect(fry, -28, 4, 16);
+      }
+      ctx.fillStyle = "#fff7d6";
+      ctx.fillRect(-12, -8, 24, 5);
+    } else if (pack === "royal") {
+      roundedRect(-22, -18, 44, 36, 8);
+      ctx.fillStyle = "#7f1d1d";
+      ctx.fill();
+      ctx.fillStyle = "#f8d36a";
+      ctx.fillRect(-6, -18, 12, 6);
+      ctx.strokeStyle = "#fde68a";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(-16, -10, 32, 20);
+    } else if (pack === "festival") {
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.fillStyle = "#ef4444";
+      ctx.fill();
+      ctx.strokeStyle = "#fde68a";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.fillStyle = "#fde68a";
+      ctx.fillRect(-3, -18, 6, 36);
+      ctx.fillRect(-18, -3, 36, 6);
+    } else if (pack === "coastal") {
+      ctx.fillStyle = "#f8fafc";
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#ef4444";
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      ctx.strokeStyle = "#ef4444";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(-18, 0);
+      ctx.lineTo(18, 0);
+      ctx.moveTo(0, -18);
+      ctx.lineTo(0, 18);
+      ctx.stroke();
+    } else if (pack === "harbor") {
+      roundedRect(-18, -22, 36, 44, 10);
+      ctx.fillStyle = "#8b5a2b";
+      ctx.fill();
+      ctx.strokeStyle = "#f8fafc";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, -2, 8, 0, Math.PI);
+      ctx.stroke();
+      ctx.fillStyle = "#d97706";
+      ctx.fillRect(-12, -12, 24, 7);
+    } else if (pack === "market") {
+      ctx.fillStyle = "#b45309";
+      ctx.beginPath();
+      ctx.moveTo(-18, 16);
+      ctx.quadraticCurveTo(-18, -18, 0, -18);
+      ctx.quadraticCurveTo(18, -18, 18, 16);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#fed7aa";
+      ctx.beginPath();
+      ctx.arc(0, -2, 6, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (pack === "neon") {
+      roundedRect(-20, -20, 40, 40, 10);
+      ctx.fillStyle = "#111827";
+      ctx.fill();
+      ctx.strokeStyle = theme.accent;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-12, 0);
+      ctx.lineTo(0, -12);
+      ctx.lineTo(12, 0);
+      ctx.lineTo(0, 12);
+      ctx.closePath();
+      ctx.stroke();
+    } else if (pack === "alpine") {
+      ctx.fillStyle = "#f8fafc";
+      ctx.beginPath();
+      ctx.arc(0, 2, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#cbd5e1";
+      ctx.beginPath();
+      ctx.arc(-8, -6, 10, 0, Math.PI * 2);
+      ctx.arc(8, -4, 8, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = "#8b5a2b";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 20, 16, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#4b2e12";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(-12, -10);
+      ctx.lineTo(12, 10);
+      ctx.stroke();
+    }
     ctx.restore();
     return;
   }
 
   if (obstacle.type === "barrier") {
-    roundedRect(-41, -17, 82, 34, 8);
-    ctx.fillStyle = "#f6ad14";
-    ctx.fill();
-    ctx.strokeStyle = "#1f1f1f";
-    ctx.lineWidth = 6;
-    for (let x = -28; x <= 28; x += 18) {
+    if (pack === "coastal" || pack === "harbor") {
+      ctx.strokeStyle = "#8b5a2b";
+      ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.moveTo(x, -17);
-      ctx.lineTo(x + 18, 17);
+      ctx.moveTo(-38, -6);
+      ctx.bezierCurveTo(-18, -18, 18, 18, 38, 6);
       ctx.stroke();
+      [-30, -10, 10, 30].forEach((offset) => {
+        ctx.fillStyle = "#f97316";
+        ctx.beginPath();
+        ctx.arc(offset, offset % 20 === 0 ? -8 : 8, 6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    } else if (pack === "neon") {
+      roundedRect(-44, -12, 88, 24, 10);
+      ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+      ctx.fill();
+      ctx.strokeStyle = theme.accent;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.14)";
+      ctx.fillRect(-34, -3, 68, 6);
+    } else if (pack === "alpine") {
+      ctx.fillStyle = "#f8fafc";
+      ctx.fillRect(-41, -17, 82, 34);
+      ctx.strokeStyle = "#94a3b8";
+      ctx.lineWidth = 4;
+      for (let x = -30; x <= 30; x += 20) {
+        ctx.beginPath();
+        ctx.moveTo(x, -17);
+        ctx.lineTo(x + 14, 17);
+        ctx.stroke();
+      }
+    } else if (pack === "wild") {
+      ctx.fillStyle = "#6b4423";
+      ctx.beginPath();
+      ctx.ellipse(-18, 0, 18, 11, 0.05, 0, Math.PI * 2);
+      ctx.ellipse(18, 0, 18, 11, -0.05, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#40260f";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(-34, -6);
+      ctx.lineTo(34, 6);
+      ctx.stroke();
+    } else {
+      roundedRect(-41, -17, 82, 34, 8);
+      ctx.fillStyle = pack === "royal" ? "#b91c1c" : "#f6ad14";
+      ctx.fill();
+      ctx.strokeStyle = pack === "royal" ? "#fff1b2" : "#1f1f1f";
+      ctx.lineWidth = 6;
+      for (let x = -28; x <= 28; x += 18) {
+        ctx.beginPath();
+        ctx.moveTo(x, -17);
+        ctx.lineTo(x + 18, 17);
+        ctx.stroke();
+      }
     }
     ctx.restore();
     return;
@@ -1967,16 +2878,28 @@ function drawObstacle(obstacle) {
 
   if (obstacle.type === "truck") {
     roundedRect(-35, -59, 70, 118, 16);
-    ctx.fillStyle = obstacle.palette[0];
+    ctx.fillStyle = theme.bossSecondary;
     ctx.fill();
     roundedRect(-24, -34, 48, 52, 12);
-    ctx.fillStyle = "#f5e2c0";
+    ctx.fillStyle = theme.bossAccent;
     ctx.fill();
     ctx.fillStyle = "#111111";
     ctx.fillRect(-38, -34, 8, 22);
     ctx.fillRect(30, -34, 8, 22);
     ctx.fillRect(-38, 18, 8, 22);
     ctx.fillRect(30, 18, 8, 22);
+    ctx.fillStyle = theme.accent;
+    if (pack === "royal") {
+      ctx.fillRect(-20, -56, 40, 10);
+    } else if (pack === "coastal" || pack === "harbor") {
+      ctx.beginPath();
+      ctx.arc(0, -50, 10, Math.PI, Math.PI * 2);
+      ctx.fill();
+    } else if (pack === "neon") {
+      ctx.fillRect(-18, -56, 36, 8);
+      ctx.fillStyle = theme.bossAccent;
+      ctx.fillRect(-14, 34, 28, 6);
+    }
     ctx.restore();
     return;
   }
@@ -2010,6 +2933,40 @@ function drawObstacle(obstacle) {
     ctx.moveTo(-7, -12);
     ctx.quadraticCurveTo(-14, -19, -3, -20);
     ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  if (obstacle.type === "bubble") {
+    ctx.shadowColor = "rgba(125, 211, 252, 0.55)";
+    ctx.shadowBlur = 16;
+    ctx.beginPath();
+    ctx.arc(0, 0, 18, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(186, 230, 253, 0.24)";
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.strokeStyle = "rgba(224, 242, 254, 0.9)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, 18, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+    ctx.beginPath();
+    ctx.arc(-6, -7, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(125, 211, 252, 0.92)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 8, Math.PI * 0.82, Math.PI * 0.18, true);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(15, 12, 5, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(186, 230, 253, 0.45)";
+    ctx.fill();
     ctx.restore();
     return;
   }
@@ -2180,6 +3137,16 @@ ui.colorGrid.addEventListener("click", (event) => {
   }
 
   setSelectedColor(button.dataset.colorId);
+});
+
+ui.routeGrid.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-route-id]");
+
+  if (!button) {
+    return;
+  }
+
+  setSelectedRoute(button.dataset.routeId);
 });
 
 ui.touchButtons.forEach((button) => {
