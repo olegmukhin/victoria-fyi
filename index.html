@@ -3,8 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>The Road Trip</title>
-  <link rel="stylesheet" href="styles.css">
+  <!-- Bump ?v= on each release: GitHub Pages caches files for 10 minutes, and a new page
+       paired with an old stylesheet or script leaves touch devices without controls. -->
+  <link rel="stylesheet" href="styles.css?v=3">
   <script>
     // Picks the layout before first paint: "compact" fills the screen without page scroll
     // (any touch device or small window), "landscape" puts the controls beside the road.
@@ -12,8 +17,11 @@
       var root = document.documentElement;
 
       function hasTouch() {
+        var ua = navigator.userAgent || "";
+
         return (navigator.maxTouchPoints || 0) > 0
           || "ontouchstart" in window
+          || /iPad|iPhone|iPod|Android/.test(ua)
           || (window.matchMedia && window.matchMedia("(any-pointer: coarse)").matches);
       }
 
@@ -196,6 +204,6 @@
     </div>
   </div>
 
-  <script src="main.js" defer></script>
+  <script src="main.js?v=3" defer></script>
 </body>
 </html>

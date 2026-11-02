@@ -342,6 +342,11 @@ function laneCenter(lane) {
   return WORLD.roadX + WORLD.laneWidth * lane + WORLD.laneWidth / 2;
 }
 
+// Stands in for `??` so the script still parses on older iPads (pre iOS 13.4).
+function valueOr(value, fallback) {
+  return value === undefined || value === null ? fallback : value;
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -1047,11 +1052,11 @@ function makeObstacle(lane, type, y = -110, extra = {}) {
     y,
     width: spec.width,
     height: spec.height,
-    speed: extra.speed ?? game.speed + random(20, 160),
+    speed: valueOr(extra.speed, game.speed + random(20, 160)),
     palette: spec.palette,
     dead: false,
     wobble: random(0, Math.PI * 2),
-    rewardId: extra.rewardId ?? null,
+    rewardId: valueOr(extra.rewardId, null),
   };
 }
 
@@ -1122,13 +1127,13 @@ function getPickupTarget(types, extraObstacles = []) {
     .filter(Boolean)
     .sort((left, right) => left.start - right.start);
 
-  return targets[0] ?? null;
+  return valueOr(targets[0], null);
 }
 
 function getActiveSupportTarget(extraObstacles = []) {
-  return getPickupTarget(["heart"], extraObstacles) ??
-    getPickupTarget(["bubble"], extraObstacles) ??
-    getPickupTarget(["laser"], extraObstacles);
+  return getPickupTarget(["heart"], extraObstacles)
+    || getPickupTarget(["bubble"], extraObstacles)
+    || getPickupTarget(["laser"], extraObstacles);
 }
 
 function stateTouchesTarget(state, startTime, endTime, target) {
@@ -1145,7 +1150,7 @@ function stateTouchesTarget(state, startTime, endTime, target) {
 
 function hasSafePath(candidates, target = null) {
   const windows = collectUpcomingWindows(candidates);
-  const activeTarget = target ?? getActiveSupportTarget(candidates);
+  const activeTarget = target || getActiveSupportTarget(candidates);
 
   if (!windows.length && !activeTarget) {
     return true;
@@ -1154,7 +1159,7 @@ function hasSafePath(candidates, target = null) {
   const farthestThreat = windows.length ? Math.max(...windows.map((window) => window.end)) : 0;
   const horizon = Math.min(
     RACE_LOOKAHEAD,
-    Math.max(farthestThreat, activeTarget?.end ?? 0) + PATH_SAMPLE_STEP
+    Math.max(farthestThreat, valueOr(activeTarget && activeTarget.end, 0)) + PATH_SAMPLE_STEP
   );
   const steps = Math.ceil(horizon / PATH_SAMPLE_STEP);
   let states = [{
@@ -1169,7 +1174,7 @@ function hasSafePath(candidates, target = null) {
     const nextStates = new Map();
 
     const rememberState = (state) => {
-      const key = `${state.lane}:${state.movingTo ?? "x"}:${state.remainingSteps}`;
+      const key = `${state.lane}:${valueOr(state.movingTo, "x")}:${state.remainingSteps}`;
       nextStates.set(key, state);
     };
 
@@ -2366,7 +2371,7 @@ function drawEyes(targetCtx, accent) {
 
 function drawDriverPortrait(targetCtx, driver, x, y, size, options = {}) {
   const scale = size / 24;
-  const silhouette = options.silhouette ?? false;
+  const silhouette = valueOr(options.silhouette, false);
   const palette = silhouette
     ? { primary: "#5a4a40", secondary: "#2b231f", accent: "#8b735f" }
     : driver;
@@ -2531,8 +2536,9 @@ function drawDriverPortrait(targetCtx, driver, x, y, size, options = {}) {
     } else if (driver.trait === "trunk") {
       targetCtx.fillStyle = palette.secondary;
       targetCtx.beginPath();
-      targetCtx.roundRect?.(-3, 3, 6, 11, 3);
-      if (!targetCtx.roundRect) {
+      if (targetCtx.roundRect) {
+        targetCtx.roundRect(-3, 3, 6, 11, 3);
+      } else {
         roundedRectFallback(targetCtx, -3, 3, 6, 11, 3);
       }
       targetCtx.fill();
@@ -3440,18 +3446,24 @@ ui.gamePanel.addEventListener("contextmenu", (event) => event.preventDefault());
 
 ui.overlayGarageButton.addEventListener("click", () => openGarage("drivers"));
 
+function pressTouchButton(button) {
+  if (button.dataset.move) {
+    shiftLane(Number(button.dataset.move));
+    return;
+  }
+
+  if (button.dataset.action === "laser") {
+    activateLaser();
+  }
+}
+
+// Older iPads have no pointer events, so fall back to touchstart there.
+const PRESS_EVENT = window.PointerEvent ? "pointerdown" : "touchstart";
+
 ui.touchButtons.forEach((button) => {
-  button.addEventListener("pointerdown", (event) => {
+  button.addEventListener(PRESS_EVENT, (event) => {
     event.preventDefault();
-
-    if (button.dataset.move) {
-      shiftLane(Number(button.dataset.move));
-      return;
-    }
-
-    if (button.dataset.action === "laser") {
-      activateLaser();
-    }
+    pressTouchButton(button);
   });
 });
 

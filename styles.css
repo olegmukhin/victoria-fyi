@@ -34,7 +34,10 @@ body {
 body::before {
   content: "";
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background:
     linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 38%),
     repeating-linear-gradient(
@@ -244,7 +247,10 @@ body::before {
 
 .overlay {
   position: absolute;
-  inset: 12px;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
   display: grid;
   place-items: center;
   padding: 18px;
@@ -321,6 +327,7 @@ button {
     "laser laser"
     "left right";
   margin-top: 12px;
+  touch-action: manipulation;
   touch-action: none;
 }
 
@@ -332,6 +339,7 @@ button {
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
     rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 238, 206, 0.12);
+  touch-action: manipulation;
   touch-action: none;
 }
 
@@ -387,7 +395,10 @@ button {
 
 .garage-modal {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 20;
   display: grid;
   place-items: center;
@@ -611,7 +622,10 @@ button {
 }
 
 .paint-preview::before {
-  inset: 14px 18px 24px;
+  top: 14px;
+  right: 18px;
+  bottom: 24px;
+  left: 18px;
   border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 28%),
@@ -713,6 +727,7 @@ html.layout-compact body {
   height: var(--app-h, 100dvh);
   overflow: hidden;
   overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 html.layout-compact body {
@@ -731,6 +746,7 @@ html.layout-compact body {
   width: 100%;
   height: var(--app-h, 100dvh);
   margin: 0;
+  padding: 6px;
   padding:
     max(6px, env(safe-area-inset-top))
     max(6px, env(safe-area-inset-right))
@@ -750,6 +766,7 @@ html.layout-compact body {
   height: 100%;
   padding: 8px;
   border-radius: 20px;
+  touch-action: manipulation;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
@@ -843,7 +860,10 @@ html.layout-compact body {
 }
 
 .layout-compact .overlay {
-  inset: 6px;
+  top: 6px;
+  right: 6px;
+  bottom: 6px;
+  left: 6px;
   padding: 10px;
 }
 
@@ -855,6 +875,7 @@ html.layout-compact body {
 }
 
 .layout-compact .overlay-card h2 {
+  font-size: 2rem;
   font-size: clamp(1.7rem, 7vw, 2.4rem);
 }
 
@@ -876,6 +897,7 @@ html.layout-compact body {
 }
 
 .layout-compact .touch-controls button {
+  min-height: 72px;
   min-height: clamp(60px, 11vh, 96px);
   padding: 0 6px;
   font-size: 1rem;
@@ -975,7 +997,10 @@ html.layout-compact body {
 /* The road column is too narrow for the start card, so cover the screen. */
 .layout-landscape .overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 15;
   border-radius: 0;
 }
