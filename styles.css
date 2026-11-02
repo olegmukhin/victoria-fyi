@@ -1022,37 +1022,104 @@ html.layout-compact body {
   border: 1px solid rgba(255, 238, 206, 0.14);
 }
 
-/* Garage modal on small / touch screens: fit the real visible height and
-   scroll inside the lists instead of the page. */
+/* Garage modal on small / touch screens: a full-height sheet with a slim header and
+   stats row, so the list gets the remaining height and scrolls on its own. */
 .layout-compact .garage-modal {
   height: var(--app-h, 100%);
-  padding: 10px;
+  padding: 8px;
 }
 
 .layout-compact .garage-window {
-  max-height: calc(var(--app-h, 100dvh) - 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  height: calc(var(--app-h, 100dvh) - 16px);
+  max-height: none;
   padding: 14px;
   border-radius: 24px;
 }
 
+.layout-compact .garage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+}
+
+.layout-compact .garage-header h2 {
+  margin: 2px 0 0;
+  font-size: 1.5rem;
+}
+
+.layout-compact #garageSubtitle {
+  display: none;
+}
+
+.layout-compact .garage-close {
+  min-width: 84px;
+  min-height: 44px;
+  flex: none;
+}
+
+.layout-compact .garage-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  flex: none;
+}
+
+.layout-compact .garage-summary-card {
+  padding: 8px 10px;
+  border-radius: 14px;
+}
+
+.layout-compact .garage-summary-card strong {
+  margin-top: 2px;
+  font-size: 0.95rem;
+}
+
+.layout-compact .garage-summary-card:nth-child(4) {
+  display: none;
+}
+
+.layout-compact .garage-tabs {
+  width: 100%;
+  flex: none;
+}
+
+.layout-compact .garage-tab {
+  flex: 1;
+}
+
 .layout-compact .garage-section {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0;
   touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
-@media (max-height: 560px) {
-  .layout-compact .garage-window {
-    grid-template-rows: auto auto minmax(0, 1fr);
-    gap: 10px;
-  }
+.layout-compact .driver-grid {
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+}
 
-  .layout-compact .garage-summary,
-  .layout-compact #garageSubtitle {
+.layout-compact .color-grid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.layout-compact .route-grid {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+@media (max-height: 560px) {
+  .layout-compact .garage-summary {
     display: none;
   }
 
   .layout-compact .garage-header h2 {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 }
