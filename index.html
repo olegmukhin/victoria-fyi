@@ -2,9 +2,34 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>The Road Trip</title>
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Picks the layout before first paint: "compact" fills the screen without page scroll
+    // (any touch device or small window), "landscape" puts the controls beside the road.
+    (function () {
+      var root = document.documentElement;
+
+      function hasTouch() {
+        return (navigator.maxTouchPoints || 0) > 0
+          || "ontouchstart" in window
+          || (window.matchMedia && window.matchMedia("(any-pointer: coarse)").matches);
+      }
+
+      window.applyLayoutMode = function () {
+        var width = window.innerWidth;
+        var height = window.innerHeight;
+        var compact = hasTouch() || width <= 900 || height <= 560;
+
+        root.classList.toggle("layout-compact", compact);
+        root.classList.toggle("layout-landscape", compact && width > height);
+        root.style.setProperty("--app-h", height + "px");
+      };
+
+      window.applyLayoutMode();
+    })();
+  </script>
 </head>
 <body>
   <div class="page-shell">
@@ -18,7 +43,7 @@
     </header>
 
     <main class="game-layout">
-      <section class="game-panel">
+      <section class="game-panel" id="gamePanel">
         <div class="hud">
           <div class="hud-card">
             <span class="label">Lives</span>
@@ -32,9 +57,13 @@
             <span class="label">Phase</span>
             <strong id="phaseValue">Standby</strong>
           </div>
-          <div class="hud-card">
+          <div class="hud-card hud-route">
             <span class="label">Route</span>
             <strong id="routeValue">Loading</strong>
+          </div>
+          <div class="hud-card">
+            <span class="label">Laser</span>
+            <strong id="laserValue">Empty</strong>
           </div>
         </div>
 
@@ -84,13 +113,15 @@
                 chew through its armor, but break off when it fires back.
               </p>
               <button id="startButton" type="button">Start Engine</button>
+              <button id="overlayGarageButton" class="overlay-garage" type="button">Garage</button>
             </div>
           </div>
+        </div>
 
-          <div class="touch-controls" aria-label="Touch controls">
-            <button type="button" data-move="-1">Left</button>
-            <button type="button" data-move="1">Right</button>
-          </div>
+        <div class="touch-controls" aria-label="Touch controls">
+          <button type="button" data-action="laser" aria-label="Fire laser">Laser</button>
+          <button type="button" data-move="-1" aria-label="Move left">&#9664; Left</button>
+          <button type="button" data-move="1" aria-label="Move right">Right &#9654;</button>
         </div>
       </section>
 
@@ -101,13 +132,15 @@
           <p>Every boss win unlocks the next place on a 100-stop world tour, and each stop gets a little harder.</p>
           <p>Beat a boss to recruit one random animal driver. Rainbow drops during boss fights unlock new paint colors.</p>
           <p>Bubble pickups give you 10 seconds of protection, so you can smash through obstacles without losing a life.</p>
+          <p>Laser bars can be saved, then fired with Up or the on-screen Laser button to burn obstacles away for 10 seconds.</p>
         </div>
         <div class="info-card">
           <h2>Controls</h2>
           <p><span>Keyboard</span> Left / Right or A / D</p>
+          <p><span>Laser</span> Up or W, or the on-screen Laser button</p>
           <p><span>Garage</span> G or the Garage button</p>
           <p><span>Restart</span> Enter, Space, or the overlay button</p>
-          <p><span>Mobile</span> Use the on-screen lane buttons</p>
+          <p><span>Touch</span> Use the on-screen Left, Right and Laser buttons</p>
         </div>
       </aside>
     </main>

@@ -118,7 +118,7 @@ body::before {
 
 .hud {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -170,8 +170,8 @@ body::before {
   font-size: clamp(1rem, 2.6vw, 1.3rem);
 }
 
-.paint-value {
-  display: inline-flex;
+.garage-card strong.paint-value {
+  display: flex;
   align-items: center;
   gap: 10px;
 }
@@ -289,6 +289,10 @@ button {
   border-radius: 999px;
   cursor: pointer;
   font: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 #startButton,
@@ -312,16 +316,39 @@ button {
 .touch-controls {
   display: none;
   gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "laser laser"
+    "left right";
   margin-top: 12px;
+  touch-action: none;
 }
 
 .touch-controls button {
   flex: 1;
+  min-height: 64px;
   color: var(--ink);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
     rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 238, 206, 0.12);
+  touch-action: none;
+}
+
+.touch-controls button[data-action="laser"] {
+  grid-area: laser;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
+    linear-gradient(90deg, #fde68a, #f97316 55%, #ef4444);
+  color: #24150f;
+}
+
+.touch-controls button[data-move="-1"] {
+  grid-area: left;
+}
+
+.touch-controls button[data-move="1"] {
+  grid-area: right;
 }
 
 .info-panel {
@@ -655,10 +682,6 @@ button {
     min-height: 52px;
   }
 
-  .touch-controls {
-    display: flex;
-  }
-
   .garage-header,
   .garage-summary {
     grid-template-columns: 1fr;
@@ -676,5 +699,335 @@ button {
   .garage-tabs {
     width: 100%;
     justify-content: space-between;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Compact layout: any touch device or small window (see applyLayoutMode
+   in index.html). The game fills the screen, the page never scrolls, and
+   the controls stay under the thumbs. Landscape moves them beside the road.
+   ------------------------------------------------------------------ */
+
+html.layout-compact,
+html.layout-compact body {
+  height: var(--app-h, 100dvh);
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html.layout-compact body {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.layout-compact .hero-copy,
+.layout-compact .info-panel {
+  display: none;
+}
+
+.layout-compact .page-shell {
+  width: 100%;
+  height: var(--app-h, 100dvh);
+  margin: 0;
+  padding:
+    max(6px, env(safe-area-inset-top))
+    max(6px, env(safe-area-inset-right))
+    max(6px, env(safe-area-inset-bottom))
+    max(6px, env(safe-area-inset-left));
+}
+
+.layout-compact .game-layout {
+  display: block;
+  height: 100%;
+}
+
+.layout-compact .game-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  padding: 8px;
+  border-radius: 20px;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.layout-compact .hud {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.layout-compact .hud-route {
+  display: none;
+}
+
+.layout-compact .hud-card,
+.layout-compact .boss-panel,
+.layout-compact .garage-card {
+  padding: 6px 9px;
+  border-radius: 12px;
+}
+
+.layout-compact .label {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+}
+
+.layout-compact .hud-card strong,
+.layout-compact .garage-card strong {
+  margin-top: 2px;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layout-compact .boss-panel {
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  margin-top: 0;
+}
+
+.layout-compact .boss-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.layout-compact .boss-copy strong {
+  margin-top: 0;
+  font-size: 0.92rem;
+}
+
+.layout-compact .boss-meter {
+  height: 12px;
+}
+
+.layout-compact .garage-strip {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 6px;
+  margin-top: 0;
+}
+
+.layout-compact .garage-card:nth-child(3) {
+  display: none;
+}
+
+.layout-compact .paint-swatch {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.layout-compact .garage-button {
+  min-width: 92px;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+}
+
+.layout-compact .stage-frame {
+  display: grid;
+  place-items: center;
+  flex: 1 1 0;
+  min-height: 0;
+  margin-top: 0;
+  padding: 6px;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.layout-compact .overlay {
+  inset: 6px;
+  padding: 10px;
+}
+
+.layout-compact .overlay-card {
+  max-height: 100%;
+  padding: 18px;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.layout-compact .overlay-card h2 {
+  font-size: clamp(1.7rem, 7vw, 2.4rem);
+}
+
+.layout-compact .overlay-card p {
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.layout-compact #startButton {
+  margin-top: 14px;
+}
+
+.layout-compact .touch-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas: "left laser right";
+  gap: 8px;
+  margin-top: 0;
+}
+
+.layout-compact .touch-controls button {
+  min-height: clamp(60px, 11vh, 96px);
+  padding: 0 6px;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.overlay-garage {
+  display: none;
+}
+
+/* Wider compact screens (iPad portrait) have room for the route card too. */
+@media (min-width: 700px) {
+  .layout-compact .hud {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .layout-compact .hud-route {
+    display: block;
+  }
+}
+
+/* Landscape: HUD and Left on the left, boss/garage/Laser/Right on the right,
+   road in the middle at full height. --stage-w is set by fitCanvas(). */
+.layout-landscape .game-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--stage-w, 40%) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.layout-landscape .hud {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+}
+
+.layout-landscape .hud-route {
+  display: none;
+}
+
+.layout-landscape .boss-panel {
+  grid-column: 3;
+  grid-row: 1;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.layout-landscape .boss-copy {
+  justify-content: space-between;
+}
+
+.layout-landscape .garage-strip {
+  grid-column: 3;
+  grid-row: 2;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.layout-landscape .garage-card:nth-child(2) {
+  display: none;
+}
+
+.layout-landscape .stage-frame {
+  grid-column: 2;
+  grid-row: 1 / 5;
+  flex: none;
+}
+
+.layout-landscape .touch-controls {
+  display: contents;
+}
+
+.layout-landscape .touch-controls button {
+  min-height: 0;
+  height: 100%;
+  border-radius: 32px;
+}
+
+.layout-landscape .touch-controls button[data-move="-1"] {
+  grid-area: auto;
+  grid-column: 1;
+  grid-row: 3 / 5;
+}
+
+.layout-landscape .touch-controls button[data-action="laser"] {
+  grid-area: auto;
+  grid-column: 3;
+  grid-row: 3;
+}
+
+.layout-landscape .touch-controls button[data-move="1"] {
+  grid-area: auto;
+  grid-column: 3;
+  grid-row: 4;
+}
+
+/* The road column is too narrow for the start card, so cover the screen. */
+.layout-landscape .overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  border-radius: 0;
+}
+
+.layout-landscape .overlay-card {
+  width: min(100%, 460px);
+}
+
+.layout-landscape .overlay-garage {
+  display: inline-block;
+  min-height: 44px;
+  margin: 10px 0 0 10px;
+  padding: 0 20px;
+  color: var(--ink);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 238, 206, 0.14);
+}
+
+/* Garage modal on small / touch screens: fit the real visible height and
+   scroll inside the lists instead of the page. */
+.layout-compact .garage-modal {
+  height: var(--app-h, 100%);
+  padding: 10px;
+}
+
+.layout-compact .garage-window {
+  max-height: calc(var(--app-h, 100dvh) - 20px);
+  padding: 14px;
+  border-radius: 24px;
+}
+
+.layout-compact .garage-section {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-height: 560px) {
+  .layout-compact .garage-window {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .layout-compact .garage-summary,
+  .layout-compact #garageSubtitle {
+    display: none;
+  }
+
+  .layout-compact .garage-header h2 {
+    font-size: 1.5rem;
   }
 }

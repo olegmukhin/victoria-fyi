@@ -6,6 +6,7 @@ const ui = {
   distance: document.getElementById("distanceValue"),
   phase: document.getElementById("phaseValue"),
   route: document.getElementById("routeValue"),
+  laser: document.getElementById("laserValue"),
   boss: document.getElementById("bossValue"),
   bossFill: document.getElementById("bossMeterFill"),
   driver: document.getElementById("driverValue"),
@@ -13,6 +14,9 @@ const ui = {
   paintSwatch: document.getElementById("paintSwatch"),
   collection: document.getElementById("collectionValue"),
   overlay: document.getElementById("overlay"),
+  gamePanel: document.getElementById("gamePanel"),
+  stageFrame: document.querySelector(".stage-frame"),
+  overlayGarageButton: document.getElementById("overlayGarageButton"),
   overlayKicker: document.getElementById("overlayKicker"),
   overlayTitle: document.getElementById("overlayTitle"),
   overlayMessage: document.getElementById("overlayMessage"),
@@ -49,13 +53,14 @@ const BASE_BOSS_DISTANCE = 1800;
 const ROUTE_UNLOCK_INTERVAL = 1;
 const MAX_LIVES = 3;
 const SHIELD_DURATION = 10;
+const LASER_DURATION = 10;
 const RACE_LOOKAHEAD = 3.6;
 const PATH_SAMPLE_STEP = 0.05;
 const LANE_SWITCH_TIME = 0.25;
 const LANE_SWITCH_STEPS = Math.ceil(LANE_SWITCH_TIME / PATH_SAMPLE_STEP);
 const STARTER_COLOR_ID = "teal-pulse";
 const STARTER_ROUTE_ID = "paris-france";
-const NON_BLOCKING_OBSTACLE_TYPES = new Set(["heart", "rainbow", "bubble"]);
+const NON_BLOCKING_OBSTACLE_TYPES = new Set(["heart", "rainbow", "bubble", "laser"]);
 
 const DRIVER_LIBRARY = [
   { id: "ant", name: "Ant", family: "Insect", group: "insect", primary: "#7c3f17", secondary: "#28120a", accent: "#f6ad14", trait: "antenna" },
@@ -267,6 +272,8 @@ const basePlayer = {
   height: 94,
   invulnerable: 0,
   shieldTimer: 0,
+  laserCharge: false,
+  laserTimer: 0,
   bob: 0,
 };
 
@@ -277,6 +284,7 @@ const obstacleTypes = {
   truck: { width: 70, height: 118, palette: ["#c9472a", "#631d13"] },
   heart: { width: 42, height: 38, palette: ["#fb7185", "#be123c"] },
   bubble: { width: 40, height: 40, palette: ["#7dd3fc", "#0284c7"] },
+  laser: { width: 52, height: 24, palette: ["#fde68a", "#f97316", "#ef4444"] },
   mine: { width: 46, height: 46, palette: ["#f97316", "#581c14"] },
   pulse: { width: 92, height: 22, palette: ["#fee2e2", "#ef4444"] },
   rainbow: { width: 96, height: 58, palette: ["#ef4444", "#f59e0b", "#facc15", "#22c55e", "#38bdf8", "#8b5cf6"] },
@@ -295,6 +303,7 @@ const game = {
   heartDropPending: false,
   heartDropTimer: 0,
   bubbleSpawnTimer: 0,
+  laserSpawnTimer: 0,
   bannerTimer: 0,
   bannerText: "",
   flash: 0,
@@ -511,6 +520,8 @@ function getRouteSettings(route = getSelectedRoute()) {
     heartDelayMax: Math.max(5.2, 6.2 - progress * 0.4),
     bubbleDelayMin: Math.max(7.4, 8.8 - progress * 0.5),
     bubbleDelayMax: Math.max(10.8, 12.8 - progress * 0.6),
+    laserDelayMin: Math.max(10.5, 12.6 - progress * 0.6),
+    laserDelayMax: Math.max(14.5, 16.8 - progress * 0.8),
   };
 }
 
@@ -646,6 +657,14 @@ function syncHud() {
     ui.phase.textContent = "Victory";
   } else {
     ui.phase.textContent = "Wrecked";
+  }
+
+  if (game.player.laserTimer > 0) {
+    ui.laser.textContent = `Firing ${Math.ceil(game.player.laserTimer)}s`;
+  } else if (game.player.laserCharge) {
+    ui.laser.textContent = "Ready";
+  } else {
+    ui.laser.textContent = "Empty";
   }
 
   const armorPercent = (game.boss.active || game.mode === "won") && game.run.bossArmor > 0
@@ -859,6 +878,7 @@ function resetGame() {
   game.heartDropPending = false;
   game.heartDropTimer = 0;
   game.bubbleSpawnTimer = random(routeSettings.bubbleDelayMin, routeSettings.bubbleDelayMax);
+  game.laserSpawnTimer = random(routeSettings.laserDelayMin, routeSettings.laserDelayMax);
   game.bannerText = "HOLD YOUR LINE";
   game.bannerTimer = 2.2;
   game.flash = 0;
@@ -910,6 +930,17 @@ function shiftLane(direction) {
       "rgba(255, 200, 120, 0.65)"
     );
   }
+}
+
+function activateLaser() {
+  if (!isGameplayMode() || game.paused || game.player.laserTimer > 0 || !game.player.laserCharge) {
+    return;
+  }
+
+  game.player.laserCharge = false;
+  game.player.laserTimer = LASER_DURATION;
+  showBanner("LASERS LIVE · 10S", 1.8);
+  syncHud();
 }
 
 function startBossPhase() {
@@ -1095,7 +1126,9 @@ function getPickupTarget(types, extraObstacles = []) {
 }
 
 function getActiveSupportTarget(extraObstacles = []) {
-  return getPickupTarget(["heart"], extraObstacles) ?? getPickupTarget(["bubble"], extraObstacles);
+  return getPickupTarget(["heart"], extraObstacles) ??
+    getPickupTarget(["bubble"], extraObstacles) ??
+    getPickupTarget(["laser"], extraObstacles);
 }
 
 function stateTouchesTarget(state, startTime, endTime, target) {
@@ -1288,6 +1321,10 @@ function hasBubbleOnRoad() {
   return game.obstacles.some((obstacle) => !obstacle.dead && obstacle.type === "bubble");
 }
 
+function hasLaserPickupOnRoad() {
+  return game.obstacles.some((obstacle) => !obstacle.dead && obstacle.type === "laser");
+}
+
 function scheduleHeartDrop() {
   if (game.lives >= MAX_LIVES || hasHeartOnRoad()) {
     return;
@@ -1304,6 +1341,11 @@ function scheduleHeartDrop() {
 function scheduleBubbleSpawn() {
   const routeSettings = getRouteSettings(getActiveRoute());
   game.bubbleSpawnTimer = random(routeSettings.bubbleDelayMin, routeSettings.bubbleDelayMax);
+}
+
+function scheduleLaserSpawn() {
+  const routeSettings = getRouteSettings(getActiveRoute());
+  game.laserSpawnTimer = random(routeSettings.laserDelayMin, routeSettings.laserDelayMax);
 }
 
 function chooseHeartCandidate() {
@@ -1366,6 +1408,36 @@ function chooseBubbleCandidate() {
   return null;
 }
 
+function chooseLaserCandidate() {
+  const candidateSpeed = Math.max(225, game.speed - 140);
+  const upcomingWindows = collectUpcomingWindows();
+  const rankedLanes = [0, 1, 2]
+    .map((lane) => {
+      const nextThreat = upcomingWindows
+        .filter((window) => window.lane === lane)
+        .reduce((soonest, window) => Math.min(soonest, window.start), Infinity);
+
+      return {
+        lane,
+        score: nextThreat - Math.abs(lane - game.player.lane) * 0.3 + (lane === game.player.lane ? 0.3 : 0),
+      };
+    })
+    .sort((left, right) => right.score - left.score);
+
+  for (const { lane } of rankedLanes) {
+    const candidate = makeObstacle(lane, "laser", -120, {
+      speed: candidateSpeed,
+    });
+    const target = pickupWindowForObstacle(candidate);
+
+    if (target && hasSafePath([], target)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function spawnHeartPickup() {
   if (game.lives >= MAX_LIVES || hasHeartOnRoad()) {
     game.heartDropPending = false;
@@ -1415,6 +1487,36 @@ function updateBubbleSpawner(dt) {
 
   if (game.bubbleSpawnTimer <= 0) {
     spawnBubblePickup();
+  }
+}
+
+function spawnLaserPickup() {
+  if (game.player.laserCharge || game.player.laserTimer > 0 || hasLaserPickupOnRoad() || hasHeartOnRoad() || hasBubbleOnRoad()) {
+    scheduleLaserSpawn();
+    return;
+  }
+
+  const candidate = chooseLaserCandidate();
+
+  if (!candidate) {
+    game.laserSpawnTimer = 1.6;
+    return;
+  }
+
+  game.obstacles.push(candidate);
+  scheduleLaserSpawn();
+  showBanner("LASER BAR ON THE ROAD", 1.8);
+}
+
+function updateLaserSpawner(dt) {
+  if (game.player.laserCharge || game.player.laserTimer > 0 || hasLaserPickupOnRoad() || hasHeartOnRoad() || hasBubbleOnRoad()) {
+    return;
+  }
+
+  game.laserSpawnTimer -= dt;
+
+  if (game.laserSpawnTimer <= 0) {
+    spawnLaserPickup();
   }
 }
 
@@ -1583,6 +1685,22 @@ function absorbObstacleWithShield(obstacle) {
   }
 }
 
+function destroyObstacleWithLaser(obstacle) {
+  obstacle.dead = true;
+
+  for (let index = 0; index < 10; index += 1) {
+    spawnParticle(
+      obstacle.x + random(-12, 12),
+      obstacle.y + random(-12, 12),
+      random(-190, 190),
+      random(-160, 40),
+      random(2, 5),
+      random(0.2, 0.42),
+      pick(["#fde68a", "#f97316", "#ef4444"])
+    );
+  }
+}
+
 function collectHeart(obstacle) {
   obstacle.dead = true;
   game.lives = Math.min(MAX_LIVES, game.lives + 1);
@@ -1625,6 +1743,26 @@ function collectShieldBubble(obstacle) {
       pick(["#7dd3fc", "#bae6fd", "#e0f2fe"])
     );
   }
+}
+
+function collectLaserPickup(obstacle) {
+  obstacle.dead = true;
+  game.player.laserCharge = true;
+  showBanner("LASER SAVED", 1.8);
+
+  for (let index = 0; index < 16; index += 1) {
+    spawnParticle(
+      obstacle.x + random(-12, 12),
+      obstacle.y + random(-8, 8),
+      random(-140, 140),
+      random(-160, 20),
+      random(2, 5),
+      random(0.25, 0.55),
+      pick(["#fde68a", "#f97316", "#ef4444"])
+    );
+  }
+
+  syncHud();
 }
 
 function collectRainbow(obstacle) {
@@ -1670,6 +1808,7 @@ function updateRace(dt) {
   }
 
   updateBubbleSpawner(dt);
+  updateLaserSpawner(dt);
 
   if (game.spawnTimer <= 0) {
     spawnRacePattern();
@@ -1699,6 +1838,7 @@ function updateBoss(dt) {
   }
 
   updateBubbleSpawner(dt);
+  updateLaserSpawner(dt);
 
   if (game.boss.moveTimer <= 0) {
     chooseNextBossLane();
@@ -1738,6 +1878,17 @@ function updateObstacles(dt) {
     obstacle.y += obstacle.speed * dt;
     obstacle.wobble += dt * 5;
 
+    if (game.player.laserTimer > 0 &&
+      !obstacle.dead &&
+      obstacle.type !== "heart" &&
+      obstacle.type !== "rainbow" &&
+      obstacle.type !== "bubble" &&
+      obstacle.type !== "laser" &&
+      obstacle.y < game.player.y + 20) {
+      destroyObstacleWithLaser(obstacle);
+      return;
+    }
+
     if (obstacle.dead || !intersects(playerHitbox, obstacleRect(obstacle))) {
       return;
     }
@@ -1754,6 +1905,11 @@ function updateObstacles(dt) {
 
     if (obstacle.type === "bubble") {
       collectShieldBubble(obstacle);
+      return;
+    }
+
+    if (obstacle.type === "laser") {
+      collectLaserPickup(obstacle);
       return;
     }
 
@@ -1794,6 +1950,11 @@ function update(dt) {
   game.player.shieldTimer = Math.max(0, game.player.shieldTimer - dt);
   if (shieldWasActive && game.player.shieldTimer === 0) {
     showBanner("SHIELD LOST", 1.4);
+  }
+  const laserWasActive = game.player.laserTimer > 0;
+  game.player.laserTimer = Math.max(0, game.player.laserTimer - dt);
+  if (laserWasActive && game.player.laserTimer === 0) {
+    showBanner("LASERS OFF", 1.4);
   }
   game.flash = Math.max(0, game.flash - dt);
   game.bannerTimer = Math.max(0, game.bannerTimer - dt);
@@ -2547,6 +2708,30 @@ function drawPlayer() {
     ctx.globalAlpha = 0.45;
   }
 
+  if (player.laserTimer > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.shadowColor = "rgba(249, 115, 22, 0.7)";
+    ctx.shadowBlur = 16;
+    ctx.strokeStyle = "rgba(253, 230, 138, 0.96)";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-10, -34);
+    ctx.lineTo(-14, -WORLD.height);
+    ctx.moveTo(10, -34);
+    ctx.lineTo(14, -WORLD.height);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(239, 68, 68, 0.65)";
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.moveTo(-10, -34);
+    ctx.lineTo(-14, -WORLD.height);
+    ctx.moveTo(10, -34);
+    ctx.lineTo(14, -WORLD.height);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   ctx.shadowColor = paint.glow;
   ctx.shadowBlur = 20;
   roundedRect(-28, -46, 56, 92, 18);
@@ -2971,6 +3156,26 @@ function drawObstacle(obstacle) {
     return;
   }
 
+  if (obstacle.type === "laser") {
+    ctx.shadowColor = "rgba(249, 115, 22, 0.55)";
+    ctx.shadowBlur = 14;
+    roundedRect(-24, -8, 48, 16, 8);
+    ctx.fillStyle = "rgba(253, 230, 138, 0.22)";
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    roundedRect(-20, -5, 40, 10, 5);
+    ctx.fillStyle = "#f97316";
+    ctx.fill();
+    ctx.fillStyle = "#fde68a";
+    ctx.fillRect(-14, -3, 28, 6);
+    ctx.fillStyle = "#ef4444";
+    ctx.fillRect(-24, -2, 6, 4);
+    ctx.fillRect(18, -2, 6, 4);
+    ctx.restore();
+    return;
+  }
+
   if (obstacle.type === "mine") {
     ctx.fillStyle = obstacle.palette[1];
     for (let spike = 0; spike < 8; spike += 1) {
@@ -3073,7 +3278,7 @@ function frame(timeStamp) {
 }
 
 window.addEventListener("keydown", (event) => {
-  if (["ArrowLeft", "ArrowRight", "KeyA", "KeyD", "Space", "Enter", "KeyG", "Escape"].includes(event.code)) {
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "KeyA", "KeyD", "KeyW", "Space", "Enter", "KeyG", "Escape"].includes(event.code)) {
     event.preventDefault();
   }
 
@@ -3106,6 +3311,10 @@ window.addEventListener("keydown", (event) => {
 
   if (event.code === "ArrowRight" || event.code === "KeyD") {
     shiftLane(1);
+  }
+
+  if (event.code === "ArrowUp" || event.code === "KeyW") {
+    activateLaser();
   }
 });
 
@@ -3149,14 +3358,106 @@ ui.routeGrid.addEventListener("click", (event) => {
   setSelectedRoute(button.dataset.routeId);
 });
 
+const CANVAS_RATIO = WORLD.width / WORLD.height;
+const MIN_SIDE_COLUMN = 96;
+
+function boxExtras(element, sides) {
+  const style = window.getComputedStyle(element);
+  return sides.reduce((total, side) => total + (parseFloat(style[side]) || 0), 0);
+}
+
+// Sizes the canvas (always 3:5) to the largest box that fits on screen, so the whole
+// road and the controls are visible at once on every device and orientation.
+function fitCanvas() {
+  const root = document.documentElement;
+  const stage = ui.stageFrame;
+  const stageX = boxExtras(stage, ["paddingLeft", "paddingRight"]);
+  const stageY = boxExtras(stage, ["paddingTop", "paddingBottom"]);
+  let maxWidth;
+  let maxHeight;
+
+  if (root.classList.contains("layout-landscape")) {
+    const panel = ui.gamePanel;
+    const panelWidth = panel.clientWidth - boxExtras(panel, ["paddingLeft", "paddingRight"]);
+    const panelHeight = panel.clientHeight - boxExtras(panel, ["paddingTop", "paddingBottom"]);
+    maxHeight = panelHeight - stageY;
+    maxWidth = Math.min(maxHeight * CANVAS_RATIO, panelWidth - MIN_SIDE_COLUMN * 2 - 16 - stageX);
+  } else if (root.classList.contains("layout-compact")) {
+    maxWidth = stage.clientWidth - stageX;
+    maxHeight = stage.clientHeight - stageY;
+  } else {
+    maxWidth = stage.clientWidth - stageX;
+    maxHeight = Math.max(360, window.innerHeight - 48);
+  }
+
+  const width = Math.max(120, Math.floor(Math.min(maxWidth, maxHeight * CANVAS_RATIO)));
+
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${Math.round(width / CANVAS_RATIO)}px`;
+  root.style.setProperty("--stage-w", `${width + stageX}px`);
+}
+
+function refreshLayout() {
+  window.applyLayoutMode();
+  fitCanvas();
+}
+
+window.addEventListener("resize", refreshLayout);
+window.addEventListener("orientationchange", () => {
+  refreshLayout();
+  // iOS reports the new size a moment after the rotation event.
+  window.setTimeout(refreshLayout, 250);
+});
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", refreshLayout);
+}
+
+if (typeof ResizeObserver === "function") {
+  new ResizeObserver(fitCanvas).observe(ui.stageFrame);
+}
+
+// iOS Safari ignores user-scalable=no, so block pinch and double-tap zoom while playing.
+document.addEventListener("gesturestart", (event) => event.preventDefault());
+
+let lastTouchEnd = 0;
+
+document.addEventListener(
+  "touchend",
+  (event) => {
+    const now = Date.now();
+
+    if (now - lastTouchEnd < 350 && event.target.closest(".touch-controls, .stage-frame")) {
+      event.preventDefault();
+    }
+
+    lastTouchEnd = now;
+  },
+  { passive: false }
+);
+
+ui.gamePanel.addEventListener("contextmenu", (event) => event.preventDefault());
+
+ui.overlayGarageButton.addEventListener("click", () => openGarage("drivers"));
+
 ui.touchButtons.forEach((button) => {
-  button.addEventListener("pointerdown", () => {
-    shiftLane(Number(button.dataset.move));
+  button.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+
+    if (button.dataset.move) {
+      shiftLane(Number(button.dataset.move));
+      return;
+    }
+
+    if (button.dataset.action === "laser") {
+      activateLaser();
+    }
   });
 });
 
 renderGarage();
 refreshIdleOverlay();
 syncHud();
+refreshLayout();
 draw();
 requestAnimationFrame(frame);
